@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+
+  starter: 
+    build:
+      context: app/
+      dockerfile: Dockerfile
+    command: python app_starter.py
+    # entrypoint: /bin/sh
+    # command: -c "sleep 3600"
+    # NB! No port exposed to host as this is unneeded
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    networks:
+      - nw
+
+  api:
+    build:
+      context: app/
+      dockerfile: Dockerfile
+    command: python app_flask.py
+    expose:
+      - 5000
+    ports:
+      - 50000:5000
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    networks:
+      - nw
+
+  db:
+    image: postgres:latest
+    expose: # NB! No port exposed to host as this is unneeded
+      - 5432
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./postgres_data/:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/0_init.sql
+      - ./postgres/add_recipients.sql:/docker-entrypoint-initdb.d/1_add_recipients.sql
+    restart: unless-stopped
+    networks:
+      - nw
+
+networks:
+  nw:
+    driver: bridge
