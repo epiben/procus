@@ -3,3 +3,4 @@ postgres/add_recipients.sql
 __pycache__/
 legacy/
 postgres_data/
+!postgres_data/.gitignore
