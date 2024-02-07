@@ -58,8 +58,12 @@ awaiting_responses = {row.phone_number: row.response_id for row in rows}
 # Set up Flask app and endpoints
 app = Flask(__name__)
 
-@app.route("/sms", methods=["GET", "POST"])
-def sms_reply() -> str:
+@app.route("/test", methods=["GET", "POST"])
+def test() -> str:
+    return "test successful"
+
+@app.route("/twilio", methods=["GET", "POST"])
+def twilio_response() -> str:
     phone_number = request.values.get("From", None)
     inbound_body = request.values.get("Body", None)
 
@@ -196,4 +200,4 @@ def sms_reply() -> str:
     return str(resp)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)
