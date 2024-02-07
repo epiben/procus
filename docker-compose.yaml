@@ -18,11 +18,11 @@ services:
     networks:
       - nw
 
-  api:
+  fastapi:
     build:
       context: app/
       dockerfile: Dockerfile
-    command: python app_flask.py
+    command: python app_fastapi.py
     expose:
       - 5000
     ports:

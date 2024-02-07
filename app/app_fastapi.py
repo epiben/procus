@@ -1,15 +1,19 @@
 from collections import namedtuple
 from datetime import datetime, timezone
-from flask import Flask, request
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import PlainTextResponse
 from psycopg2.extras import NamedTupleCursor
 from twilio.twiml.messaging_response import MessagingResponse
 from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms
 import hashlib
+import uvicorn
 import inspect
 import json
 import logging
 import psycopg2
 import time
+
+from pprint import pprint
 
 logger = logging.getLogger('database_logger')
 logger.setLevel(logging.INFO)
@@ -55,17 +59,21 @@ with psycopg2.connect(**DB_CONN_PARAMS) as conn:
 
 awaiting_responses = {row.phone_number: row.response_id for row in rows}
 
-# Set up Flask app and endpoints
-app = Flask(__name__)
+# Set up custom response type
+class XmlResponse(Response):
+    media_type = "application/xml"
 
-@app.route("/test", methods=["GET", "POST"])
-def test() -> str:
+app = FastAPI()
+
+@app.get("/test", response_class=PlainTextResponse)
+def test() -> PlainTextResponse:
     return "test successful"
 
-@app.route("/twilio", methods=["GET", "POST"])
-def twilio_response() -> str:
-    phone_number = request.values.get("From", None)
-    inbound_body = request.values.get("Body", None)
+@app.post("/twilio", response_class=XmlResponse)
+async def twilio_response(request: Request) -> XmlResponse:
+    data = await request.form()
+    phone_number = data.get("From", None)
+    inbound_body = data.get("Body", None)
 
     resp = MessagingResponse()
 
@@ -73,11 +81,13 @@ def twilio_response() -> str:
         resp.message("Houston, we have a problem")
         logger.critical(
             "Didn't receive a recipient phone number. Twilio request: \n" +
-            json.dumps(request)
+            json.dumps(data)
         )
-        return str(resp)
+        return resp.to_xml()
     
     with psycopg2.connect(**DB_CONN_PARAMS) as conn:
+        # TODO: don't save response to "thank you message" -- find a way to make this happen
+
         document_sms(
             connection=conn,
             phone_number=phone_number,
@@ -123,7 +133,7 @@ def twilio_response() -> str:
                 message_body=outbound_body,
                 direction="outbound"
             )
-            return str(resp)
+            return resp.to_xml()
         
         with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
             cursor.execute(
@@ -160,7 +170,7 @@ def twilio_response() -> str:
                 message_body=outbound_body,
                 direction="outbound"
             )
-            return str(resp)
+            return resp.to_xml()
 
         item = fetch_next_item(conn, phone_number)
 
@@ -197,7 +207,7 @@ def twilio_response() -> str:
             direction="outbound"
         )
     
-    return str(resp)
+    return resp.to_xml()
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=5000)
