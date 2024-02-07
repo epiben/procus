@@ -74,6 +74,7 @@ logger.info("Initialised Client")
 
 def main():
     with psycopg2.connect(**DB_CONN_PARAMS) as conn:
+        logger.info("Connected to db and ready to process user request")
         iterations = fetch_iterations(conn)
         
         for iter in iterations:
@@ -124,14 +125,14 @@ def main():
             logger.info("No pending iterations")
 
 if __name__ == "__main__":
-    while True:
-        print("New iteration")
+    logger.info("Starting the starter app")
 
+    while True:
         try:
             main()
         except Exception as e:
             error_msg = getattr(e, "message", repr(e))
-            logger.fatal("main() fails. Error message: {error_msg}")
+            logger.fatal(f"main() fails. Error message: {error_msg}")
 
         SECONDS_PER_HOUR = 60 * 60
         time.sleep(SECONDS_PER_HOUR / 2)
