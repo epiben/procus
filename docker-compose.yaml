@@ -9,7 +9,7 @@ services:
     command: python app_starter.py
     # entrypoint: /bin/sh
     # command: -c "sleep 3600"
-    # NB! No port exposed to host as this is unneeded
+    # NB! No port mapped to host as this is unneeded
     restart: unless-stopped
     depends_on:
       db:
@@ -37,7 +37,7 @@ services:
 
   db:
     image: postgres:latest
-    expose: # NB! No port exposed to host as this is unneeded
+    expose: # NB! No port mapped to host as this is unneeded
       - 5432
     environment:
       POSTGRES_PASSWORD: postgres
