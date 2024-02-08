@@ -122,3 +122,28 @@ VALUES
         '4: Store', 
         '5: Ekstremt'
     )); 
+
+---- Dummy person, useful for cURL-based querying
+INSERT INTO public.recipients (phone_number, full_name) 
+VALUES ('+4500000000', 'McUrl');
+
+INSERT INTO public.iterations (instrument_id, phone_number, message_body, is_open, opens_datetime) 
+SELECT
+    1
+    , phone_number
+    , CONCAT('Dear ', full_name, '! Are you ready for another round? If so, reply with arbitrary messsage.')
+    , true
+    , now()
+FROM public.recipients;
+
+INSERT INTO responses (phone_number, item_text, item_id, opens_datetime, status)
+SELECT
+    '+4500000000'
+    , item_text
+    , item_id
+    , now()
+    , 'open'
+FROM public.items;
+
+INSERT INTO responses (phone_number, item_text, item_id, opens_datetime, status)
+VALUES ('+4500000000', 'Thank you for your help!', NULL, now(), 'open');

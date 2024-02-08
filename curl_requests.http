@@ -1,0 +1,19 @@
+### POST start from scratch
+curl -d 'Body=Restart' \
+    -d 'From=%2B4500000000' \
+    http://localhost:50000/twilio
+
+### POST start iteration
+curl -d 'Body=Yes' \
+    -d 'From=%2B4500000000' \
+    http://localhost:50000/twilio
+
+### POST valid response to items
+curl -d 'Body=1' \
+    -d 'From=%2B4500000000' \
+    http://localhost:50000/twilio
+
+### POST invalid response to items
+curl -d 'Body=10' \
+    -d 'From=%2B4500000000' \
+    http://localhost:50000/twilio
