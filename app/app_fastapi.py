@@ -66,9 +66,9 @@ class XmlResponse(Response):
 
 app = FastAPI()
 
-@app.get("/test", response_class=PlainTextResponse)
-def test() -> PlainTextResponse:
-    return "test successful"
+@app.get("/health", response_class=PlainTextResponse)
+def health() -> PlainTextResponse:
+    return "Service is healthy"
 
 @app.post("/twilio", response_class=XmlResponse)
 async def twilio_response(request: Request) -> XmlResponse:
