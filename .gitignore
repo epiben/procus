@@ -1,5 +1,5 @@
 */.env
-postgres/add_recipients.sql
+postgres/add_recipients_iterations.sql
 postgres/.data/*
 __pycache__/
 legacy/
