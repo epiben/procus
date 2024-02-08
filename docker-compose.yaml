@@ -48,7 +48,7 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./postgres_data/:/var/lib/postgresql/data
+      - ./postgres/.data/:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/0_init.sql
       - ./postgres/add_recipients.sql:/docker-entrypoint-initdb.d/1_add_recipients.sql
     restart: unless-stopped
