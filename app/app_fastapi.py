@@ -1,3 +1,6 @@
+# TODO: use aiopg for async postgres queries
+# TODO: make validator to ensure only Twilio can call the endpoint
+
 from collections import namedtuple
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, Response
@@ -12,8 +15,6 @@ import json
 import logging
 import psycopg2
 import time
-
-from pprint import pprint
 
 logger = logging.getLogger('database_logger')
 logger.setLevel(logging.INFO)
