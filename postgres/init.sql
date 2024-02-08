@@ -146,4 +146,4 @@ SELECT
 FROM public.items;
 
 INSERT INTO responses (phone_number, item_text, item_id, opens_datetime, status)
-VALUES ('+4500000000', 'Thank you for your help!', NULL, now(), 'open');
+VALUES ('+4500000000', 'Thank you for your help! Reply with the word Restart to start over.', NULL, now(), 'open');
