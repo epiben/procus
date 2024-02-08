@@ -82,33 +82,43 @@ VALUES ('EQ-5D-5L', true);
 ---- Items
 INSERT INTO public.items (instrument_id, item_text)
 VALUES 
-    (1, 'Hvor store problemer har du med at gå omkring?
-1: Ingen
-2: Lidt
-3: Moderate
-4: Store
-5: Jeg kan ikke gå omkring'),
-    (1, 'Hvor store problemer har du med at vaske eller klæde dig på? 
-1: Ingen
-2: Lidt
-3: Moderate
-4: Store
-5: Jeg kan ikke vaske mig eller klæde mig på'),
-    (1, 'Hvor store problemer har du med at udføre sædvanlige aktiviteter? 
-1: Ingen
-2: Lidt
-3: Moderate
-4: Store
-5: Jeg kan ikke udføre sædvanlige aktiviteter'),
-    (1, 'Hvor store smerter/meget ubehag har du? 
-1: Ingen
-2: Lidt
-3: Moderate
-4: Store
-5: Ekstreme'),
-    (1, 'I hvor høj grad er du ængstelig eller deprimeret? 
-1: Det er jeg ikke
-2: Lidt
-3: Moderate
-4: Store
-5: Ekstremt');
+    (1, concat_ws(E'\n',
+        'Hvor store problemer har du med at gå omkring?',
+        '1: Ingen',
+        '2: Lidt',
+        '3: Moderate',
+        '4: Store',
+        '5: Jeg kan ikke gå omkring'
+    )),
+    (1, concat_ws(E'\n',
+        'Hvor store problemer har du med at vaske eller klæde dig på?',
+        '1: Ingen',
+        '2: Lidt',
+        '3: Moderate',
+        '4: Store',
+        '5: Jeg kan ikke vaske mig eller klæde mig på'
+    )),
+    (1, concat_ws(E'\n',
+        'Hvor store problemer har du med at udføre sædvanlige aktiviteter?',
+        '1: Ingen', 
+        '2: Lidt', 
+        '3: Moderate', 
+        '4: Store', 
+        '5: Jeg kan ikke udføre sædvanlige aktiviteter' 
+    )),
+    (1, concat_ws(E'\n',
+        'Hvor store smerter/meget ubehag har du?',
+        '1: Ingen',
+        '2: Lidt',
+        '3: Moderate',
+        '4: Store',
+        '5: Ekstreme'
+    )),
+    (1, concat_ws(E'\n',
+        'I hvor høj grad er du ængstelig eller deprimeret?', 
+        '1: Det er jeg ikke', 
+        '2: Lidt', 
+        '3: Moderate', 
+        '4: Store', 
+        '5: Ekstremt'
+    )); 
