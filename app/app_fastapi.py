@@ -3,11 +3,10 @@
 
 from collections import namedtuple
 from datetime import datetime, timezone
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import PlainTextResponse
 from psycopg2.extras import NamedTupleCursor
-from twilio.twiml.messaging_response import MessagingResponse
-from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms
+from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms, MessagingResponse
 import hashlib
 import uvicorn
 import inspect
@@ -73,8 +72,8 @@ def health() -> PlainTextResponse:
 @app.post("/twilio", response_class=XmlResponse)
 async def twilio_response(request: Request) -> XmlResponse:
     data = await request.form()
-    phone_number = data.get("From", None)
-    inbound_body = data.get("Body", None)
+    phone_number = data.get("from", None)
+    inbound_body = data.get("message", None)
 
     resp = MessagingResponse()
 

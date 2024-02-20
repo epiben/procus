@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from psycopg2 import sql
@@ -6,6 +7,27 @@ import os
 import psycopg2
 
 load_dotenv(".env")
+
+@dataclass
+class MessagingResponse():
+    # See https://www.cpsms.dk/files/CPSMS_2vejs_API.pdf
+    
+    body: str = "<cancel></cancel>"
+
+    def to_xml(self) -> XmlResponse:
+        out = [
+            "<?xml version='1.0' encoding='iso-8859-1'?>",
+            "<reply>",
+            self.body,
+            "</reply>"
+        ]
+        return "\n".join(out)
+    
+    def message(self, value) -> None:
+        self.body = f"<message>{value}</message>"
+
+    def no_response(self) -> None:
+        self.body = "<cancel></cancel>"
 
 def document_sms(
         connection,
