@@ -69,7 +69,7 @@ app = FastAPI()
 def health() -> PlainTextResponse:
     return "Service is healthy"
 
-@app.post("/twilio", response_class=XmlResponse)
+@app.post("/aquaicu", response_class=XmlResponse)
 async def twilio_response(request: Request) -> XmlResponse:
     data = await request.form()
     phone_number = data.get("from", None)
