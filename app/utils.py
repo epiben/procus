@@ -38,7 +38,7 @@ class DatabaseLogHandler(logging.Handler):
         table_schema = sql.SQL("""
             CREATE TABLE IF NOT EXISTS {} (
                 id SERIAL PRIMARY KEY,
-                level VARCHAR(10),
+                level TEXT,
                 message TEXT,
                 created_at TIMESTAMP
             )
