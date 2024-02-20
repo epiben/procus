@@ -1,9 +1,9 @@
+from collections import namedtuple
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from psycopg2.extras import NamedTupleCursor
 from twilio.rest import Client
 from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms
-from datetime import datetime, timezone
-from collections import namedtuple
 import logging
 import os
 import psycopg2
