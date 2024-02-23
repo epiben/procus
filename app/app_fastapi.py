@@ -1,12 +1,11 @@
 # TODO: use aiopg for async postgres queries
-# TODO: make validator to ensure only Twilio can call the endpoint
 
 from collections import namedtuple
 from datetime import datetime, timezone
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from psycopg2.extras import NamedTupleCursor
-from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms, MessagingResponse
+from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms, MessagingResponse, XmlResponse
 import hashlib
 import uvicorn
 import inspect
@@ -45,7 +44,8 @@ def fetch_next_item(connection, phone_number: str) -> namedtuple:
         item = cursor.fetchone()
     return item
 
-# Update dict of awaiting responses, fetched from database when app launches
+# Build dict of awaiting responses when app launches
+# the dict is updated when the /aquaicu endpoint is invoked (when appropriate)
 with psycopg2.connect(**DB_CONN_PARAMS) as conn:
     with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
         cursor.execute(
@@ -59,9 +59,6 @@ with psycopg2.connect(**DB_CONN_PARAMS) as conn:
 
 awaiting_responses = {row.phone_number: row.response_id for row in rows}
 
-# Set up custom response type
-class XmlResponse(Response):
-    media_type = "application/xml"
 
 app = FastAPI()
 
@@ -69,9 +66,9 @@ app = FastAPI()
 def health() -> PlainTextResponse:
     return "Service is healthy"
 
-@app.post("/aquaicu", response_class=XmlResponse)
-async def twilio_response(request: Request) -> XmlResponse:
-    data = await request.form()
+@app.get("/aquaicu", response_class=XmlResponse)
+async def sms_response(request: Request) -> XmlResponse:
+    data = request.query_params
     phone_number = data.get("from", None)
     inbound_body = data.get("message", None)
 
@@ -80,7 +77,7 @@ async def twilio_response(request: Request) -> XmlResponse:
     if not phone_number:
         resp.message("Houston, we have a problem")
         logger.critical(
-            "Didn't receive a recipient phone number. Twilio request: \n" +
+            "Didn't receive a recipient phone number. Request: \n" +
             json.dumps(data)
         )
         return resp.to_xml()

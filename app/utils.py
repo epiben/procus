@@ -1,12 +1,17 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+from fastapi import Response
 from psycopg2 import sql
 import logging
 import os
 import psycopg2
 
 load_dotenv(".env")
+
+# Set up custom response type
+class XmlResponse(Response):
+    media_type = "application/xml"
 
 @dataclass
 class MessagingResponse():

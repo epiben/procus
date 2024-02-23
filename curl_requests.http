@@ -1,19 +1,50 @@
+# VIA LOCALHOST
+
+curl 'http://localhost:50000/aquaicu?message=Restart&from=%2B4500000000'
+
 ### POST start from scratch
-curl -d 'Body=Restart' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+curl -G -d 'message=Restart' \
+    -d 'from=%2B4500000000' \
+    http://localhost:50000/aquaicu
 
 ### POST start iteration
-curl -d 'Body=Yes' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+curl -G -d 'message=Yes' \
+    -d 'from=%2B4500000000' \
+    http://localhost:50000/aquaicu
 
 ### POST valid response to items
-curl -d 'Body=1' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+curl -G -d 'message=1' \
+    -d 'from=%2B4500000000' \
+    http://localhost:50000/aquaicu
 
 ### POST invalid response to items
-curl -d 'Body=10' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+curl -G -d 'message=10' \
+    -d 'from=%2B4500000000' \
+    http://localhost:50000/aquaicu
+
+### GET to test health of FastAPI service
+curl http://localhost:50000/health
+
+# VIA PUBLIC ADDRESS
+### POST start from scratch
+curl -d 'message=Restart' \
+    -d 'from=%2B4500000000' \
+    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+
+### POST start iteration
+curl -d 'message=Yes' \
+    -d 'from=%2B4500000000' \
+    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+
+### POST valid response to items
+curl -d 'message=1' \
+    -d 'from=%2B4500000000' \
+    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+
+### POST invalid response to items
+curl -d 'message=10' \
+    -d 'from=%2B4500000000' \
+    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+
+### GET to test health of FastAPI service
+curl https://beb4-128-0-72-9.ngrok-free.app/health

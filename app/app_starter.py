@@ -8,6 +8,7 @@ import logging
 import os
 import psycopg2
 import time
+import requests
 
 logger = logging.getLogger('database_logger')
 logger.setLevel(logging.INFO)
@@ -65,7 +66,6 @@ def add_item_to_responses(
 
 # Twilio-related
 load_dotenv(".env")
-messaging_service_sid = os.environ["MESSAGING_SERVICE_SID"]
 client = Client(
     os.environ["TWILIO_ACCOUNT_SID"], 
     os.environ["TWILIO_AUTH_TOKEN"]
@@ -106,7 +106,7 @@ def main():
             message = client.messages.create(
                 to=iter.phone_number,
                 body=iter.message_body,
-                messaging_service_sid=messaging_service_sid
+                messaging_service_sid=os.environ["MESSAGING_SERVICE_SID"]
             )
 
             document_sms(
@@ -115,8 +115,6 @@ def main():
                 message_body=iter.message_body,
                 direction="outbound"
             )
-
-            conn.commit()
 
             logger.info(
                 f"{iter.phone_number} invited to new round. Message SID: {message.sid}"
