@@ -1,31 +1,34 @@
 # TODO: use aiopg for async postgres queries
 
-from collections import namedtuple
-from datetime import datetime, timezone
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
-from psycopg2.extras import NamedTupleCursor
-from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms, MessagingResponse, XmlResponse
 import hashlib
-import uvicorn
 import inspect
 import json
 import logging
-import psycopg2
 import time
+from collections import namedtuple
+from datetime import datetime, timezone
 
-logger = logging.getLogger('database_logger')
+import psycopg2
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
+from psycopg2.extras import NamedTupleCursor
+from utils import (DB_CONN_PARAMS, DatabaseLogHandler, MessagingResponse,
+                   XmlResponse, document_sms)
+
+logger = logging.getLogger("database_logger")
 logger.setLevel(logging.INFO)
 log_handler = DatabaseLogHandler(DB_CONN_PARAMS)
 logger.addHandler(log_handler)
 
 # Helper functions
 def parse_response(x: str, lower: int = 1, upper: int = 5) -> int | None:
-    try: 
+    try:
         x = int(x)
         return x if lower <= x <= upper else None
     except ValueError:
         return None
+
 
 def fetch_next_item(connection, phone_number: str) -> namedtuple:
     # psycopg2 doesn't support type hinting
@@ -39,10 +42,11 @@ def fetch_next_item(connection, phone_number: str) -> namedtuple:
             ORDER BY response_id ASC
             LIMIT 1;
             """,
-            (phone_number, )
+            (phone_number,),
         )
         item = cursor.fetchone()
     return item
+
 
 # Build dict of awaiting responses when app launches
 # the dict is updated when the /aquaicu endpoint is invoked (when appropriate)
@@ -62,9 +66,11 @@ awaiting_responses = {row.phone_number: row.response_id for row in rows}
 
 app = FastAPI()
 
+
 @app.get("/health", response_class=PlainTextResponse)
 def health() -> PlainTextResponse:
     return "Service is healthy"
+
 
 @app.get("/aquaicu", response_class=XmlResponse)
 async def sms_response(request: Request) -> XmlResponse:
@@ -77,11 +83,11 @@ async def sms_response(request: Request) -> XmlResponse:
     if not phone_number:
         resp.message("Houston, we have a problem")
         logger.critical(
-            "Didn't receive a recipient phone number. Request: \n" +
-            json.dumps(data)
+            "Didn't receive a recipient phone number. Request: \n"
+            + json.dumps(data)
         )
         return resp.to_xml()
-    
+
     with psycopg2.connect(**DB_CONN_PARAMS) as conn:
         # TODO: don't save response to "thank you message" -- find a way to make this happen
 
@@ -89,7 +95,7 @@ async def sms_response(request: Request) -> XmlResponse:
             connection=conn,
             phone_number=phone_number,
             message_body=inbound_body,
-            direction="inbound"
+            direction="inbound",
         )
 
         # TODO: remove later, this is to allow to start over interactively
@@ -98,7 +104,7 @@ async def sms_response(request: Request) -> XmlResponse:
 
             conn.cursor().execute(
                 "UPDATE iterations SET is_open = true WHERE phone_number = %s;",
-                (phone_number, )
+                (phone_number,),
             )
 
             conn.cursor().execute(
@@ -106,20 +112,20 @@ async def sms_response(request: Request) -> XmlResponse:
                 UPDATE responses SET status = 'open', response = NULL
                 WHERE phone_number = %s
                 """,
-                (phone_number, )
+                (phone_number,),
             )
 
             with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
                 cursor.execute(
                     """
-                    SELECT message_body 
-                    FROM iterations 
+                    SELECT message_body
+                    FROM iterations
                     WHERE phone_number = %s
                         AND is_open = true
                     ORDER BY iteration_id DESC
                     LIMIT 1;
                     """,
-                    (phone_number, )
+                    (phone_number,),
                 )
                 outbound_body = cursor.fetchone().message_body
 
@@ -128,10 +134,10 @@ async def sms_response(request: Request) -> XmlResponse:
                 connection=conn,
                 phone_number=phone_number,
                 message_body=outbound_body,
-                direction="outbound"
+                direction="outbound",
             )
             return resp.to_xml()
-        
+
         with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
             cursor.execute(
                 """
@@ -140,7 +146,7 @@ async def sms_response(request: Request) -> XmlResponse:
                 WHERE phone_number = %s
                     AND status = 'awaiting';
                 """,
-                (phone_number, )
+                (phone_number,),
             )
             n_responses_waiting_for_user = cursor.fetchone().n
 
@@ -152,11 +158,15 @@ async def sms_response(request: Request) -> XmlResponse:
             conn.cursor().execute(
                 """
                 UPDATE responses SET response = %s, status = 'closed'
-                WHERE response_id = %s 
+                WHERE response_id = %s
                     AND phone_number = %s
                     AND status = 'awaiting'
                 """,
-                (parsed_response, awaiting_responses[phone_number], phone_number)
+                (
+                    parsed_response,
+                    awaiting_responses[phone_number],
+                    phone_number,
+                ),
             )
         else:
             outbound_body = "Husk svare med blot èt heltal fra listen ovenfor."
@@ -165,7 +175,7 @@ async def sms_response(request: Request) -> XmlResponse:
                 connection=conn,
                 phone_number=phone_number,
                 message_body=outbound_body,
-                direction="outbound"
+                direction="outbound",
             )
             return resp.to_xml()
 
@@ -174,14 +184,14 @@ async def sms_response(request: Request) -> XmlResponse:
         if item:
             awaiting_responses[phone_number] = item.response_id
             outbound_body = item.item_text
-            
+
             conn.cursor().execute(
                 """
                 UPDATE responses
                 SET status = 'awaiting', status_datetime = %s
                 WHERE response_id = %s;
                 """,
-                (datetime.now(timezone.utc), item.response_id)
+                (datetime.now(timezone.utc), item.response_id),
             )
         else:
             # TODO: consider to mention we'll be in touch again
@@ -189,22 +199,23 @@ async def sms_response(request: Request) -> XmlResponse:
             error_code = error_code.hexdigest()[:7]
             outbound_body = inspect.cleandoc(
                 f"""\
-                Der ser ikke ud til at være nogle åbne spørgsmål til dig. 
+                Der ser ikke ud til at være nogle åbne spørgsmål til dig.
                 Svar 'Restart' for at starte forfra.\
                 """
                 # Er dette en fejl, bedes du kontakte os med følgende fejlkode: {error_code}.
             )
-        
+
         resp.message(outbound_body)
 
         document_sms(
             connection=conn,
             phone_number=phone_number,
             message_body=outbound_body,
-            direction="outbound"
+            direction="outbound",
         )
-    
+
     return resp.to_xml()
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=5000)
