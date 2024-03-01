@@ -1,50 +1,35 @@
 # VIA LOCALHOST
 
-curl 'http://localhost:50000/aquaicu?message=Restart&from=%2B4500000000'
+### GET start from scratch
+curl http://localhost:50000/aquaicu?message=Restart&from=4500000000
 
-### POST start from scratch
-curl -G -d 'message=Restart' \
-    -d 'from=%2B4500000000' \
-    http://localhost:50000/aquaicu
+### GET start iteration
+curl http://localhost:50000/aquaicu?message=Yes&from=4500000000
 
-### POST start iteration
-curl -G -d 'message=Yes' \
-    -d 'from=%2B4500000000' \
-    http://localhost:50000/aquaicu
+### GET valid response to items
+curl http://localhost:50000/aquaicu?message=2&from=4500000000
 
-### POST valid response to items
-curl -G -d 'message=1' \
-    -d 'from=%2B4500000000' \
-    http://localhost:50000/aquaicu
-
-### POST invalid response to items
-curl -G -d 'message=10' \
-    -d 'from=%2B4500000000' \
-    http://localhost:50000/aquaicu
+### GET invalid response to items
+curl http://localhost:50000/aquaicu?message=10&from=4500000000
 
 ### GET to test health of FastAPI service
 curl http://localhost:50000/health
 
 # VIA PUBLIC ADDRESS
-### POST start from scratch
-curl -d 'message=Restart' \
-    -d 'from=%2B4500000000' \
-    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+#### GET start from scratch
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Restart&from=4500000000
 
-### POST start iteration
-curl -d 'message=Yes' \
-    -d 'from=%2B4500000000' \
-    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+### GET start iteration
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Yes&from=4500000000
 
-### POST valid response to items
-curl -d 'message=1' \
-    -d 'from=%2B4500000000' \
-    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+### GET valid response to items
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=2&from=4500000000
 
-### POST invalid response to items
-curl -d 'message=10' \
-    -d 'from=%2B4500000000' \
-    https://beb4-128-0-72-9.ngrok-free.app/aquaicu
+### GET invalid response to items
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=10&from=4500000000
 
 ### GET to test health of FastAPI service
-curl https://beb4-128-0-72-9.ngrok-free.app/health
+curl http://localhost:50000/health
+
+###
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Restart&from=4560196801
