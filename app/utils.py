@@ -11,7 +11,7 @@ load_dotenv(".env")
 
 # Set up custom response type
 class XmlResponse(Response):
-    media_type = "application/xml"
+    media_type = "application/xml;charset=utf-8"
 
 @dataclass
 class MessagingResponse():
@@ -21,7 +21,7 @@ class MessagingResponse():
 
     def to_xml(self) -> XmlResponse:
         out = [
-            "<?xml version='1.0' encoding='iso-8859-1'?>",
+            "<?xml version='1.0' encoding='utf-8'?>",
             "<reply>",
             self.body,
             "</reply>"
