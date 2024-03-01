@@ -1,16 +1,16 @@
-from collections import namedtuple
-from datetime import datetime, timezone
-from dotenv import load_dotenv
-from psycopg2.extras import NamedTupleCursor
-from twilio.rest import Client
-from utils import DatabaseLogHandler, DB_CONN_PARAMS, document_sms
 import logging
 import os
-import psycopg2
 import time
-import requests
+from collections import namedtuple
+from datetime import datetime, timezone
 
-logger = logging.getLogger('database_logger')
+import psycopg2
+import requests
+from dotenv import load_dotenv
+from psycopg2.extras import NamedTupleCursor
+from utils import DB_CONN_PARAMS, DatabaseLogHandler, document_sms
+
+logger = logging.getLogger("database_logger")
 logger.setLevel(logging.INFO)
 log_handler = DatabaseLogHandler(DB_CONN_PARAMS)
 logger.addHandler(log_handler)
@@ -29,6 +29,7 @@ def fetch_iterations(connection) -> list[namedtuple]:
         iterations = cursor.fetchall()
     return iterations
 
+
 def fetch_items(connection, instrument_id: int) -> list[namedtuple]:
     with connection.cursor(cursor_factory=NamedTupleCursor) as cursor:
         cursor.execute(
@@ -37,83 +38,84 @@ def fetch_items(connection, instrument_id: int) -> list[namedtuple]:
             FROM items
             WHERE instrument_id = %s
             """,
-            (instrument_id, )
+            (instrument_id,),
         )
         items = cursor.fetchall()
     return items
 
+
 def add_item_to_responses(
-        connection, # psycopg2 doesn't support type hinting
-        phone_number: str, 
-        item_text: str, 
-        item_id: int,
-        opens_datetime: datetime = None
-        ) -> None:
+    connection,  # psycopg2 doesn't support type hinting
+    phone_number: str,
+    item_text: str,
+    item_id: int,
+    opens_datetime: datetime = None,
+) -> None:
     """
     The responses table will be pre-filled with items, and responses will be
     stored here by the API when invoked through Twilio
     """
     if not opens_datetime:
-        opens_datetime = datetime.now(timezone.utc) 
-    
+        opens_datetime = datetime.now(timezone.utc)
+
     connection.cursor().execute(
         """
         INSERT INTO responses (phone_number, item_text, item_id, opens_datetime, status)
         VALUES (%s, %s, %s, %s, %s);
-        """, 
-        (phone_number, item_text, item_id, opens_datetime, "open")
+        """,
+        (phone_number, item_text, item_id, opens_datetime, "open"),
     )
+
 
 # Twilio-related
 load_dotenv(".env")
 client = Client(
-    os.environ["TWILIO_ACCOUNT_SID"], 
-    os.environ["TWILIO_AUTH_TOKEN"]
+    os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"]
 )
 logger.info("Initialised Client")
+
 
 def main():
     with psycopg2.connect(**DB_CONN_PARAMS) as conn:
         logger.info("Connected to db and ready to process user request")
         iterations = fetch_iterations(conn)
-        
+
         for iter in iterations:
             items = fetch_items(
-                connection=conn, 
-                instrument_id=iter.instrument_id
+                connection=conn, instrument_id=iter.instrument_id
             )
-            
+
             for item in items:
                 add_item_to_responses(
-                    connection=conn, 
-                    phone_number=iter.phone_number, 
+                    connection=conn,
+                    phone_number=iter.phone_number,
                     item_text=item.item_text,
-                    item_id=item.item_id
+                    item_id=item.item_id,
                 )
-            
+
             add_item_to_responses(
                 connection=conn,
                 phone_number=iter.phone_number,
                 item_text="Tak for din hjælp!",
-                item_id=None
+                item_id=None,
             )
 
             conn.cursor().execute(
                 "UPDATE iterations SET is_open = true WHERE iteration_id = %s;",
-                (iter.iteration_id, )
+                (iter.iteration_id,),
             )
 
             message = client.messages.create(
                 to=iter.phone_number,
                 body=iter.message_body,
-                messaging_service_sid=os.environ["MESSAGING_SERVICE_SID"]
+                messaging_service_sid=os.environ["MESSAGING_SERVICE_SID"],
             )
 
             document_sms(
                 connection=conn,
                 phone_number=iter.phone_number,
                 message_body=iter.message_body,
-                direction="outbound"
+                direction="outbound",
             )
 
             logger.info(
@@ -121,6 +123,7 @@ def main():
             )
         else:
             logger.info("No pending iterations")
+
 
 if __name__ == "__main__":
     logger.info("Starting the starter app")
