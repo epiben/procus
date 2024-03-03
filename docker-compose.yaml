@@ -2,11 +2,11 @@ version: "3.8"
 
 services:
 
-  starter: 
+  starter:
     build:
-      context: app/
+      context: .
       dockerfile: Dockerfile
-    command: python app_starter.py
+    command: python /app/app_starter.py
     # entrypoint: /bin/sh
     # command: -c "sleep 3600"
     # NB! No port mapped to host as this is unneeded
@@ -16,13 +16,13 @@ services:
         condition: service_healthy
         restart: true
     networks:
-      - nw
+      - backend
 
   fastapi:
     build:
-      context: app/
+      context: .
       dockerfile: Dockerfile
-    command: python app_fastapi.py
+    command: python /app/app_fastapi.py
     expose:
       - 5000
     ports:
@@ -39,7 +39,23 @@ services:
         condition: service_healthy
         restart: true
     networks:
-      - nw
+      - frontend
+      - backend
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: start fastapi --config /etc/ngrok.yaml
+    volumes:
+      - ./ngrok/ngrok.yaml:/etc/ngrok.yaml
+    ports:
+      - 4040:4040
+    restart: unless-stopped
+    depends_on:
+      fastapi:
+        condition: service_healthy
+        restart: true
+    networks:
+      - frontend
 
   db:
     image: postgres:latest
@@ -53,14 +69,17 @@ services:
       interval: 10s
       timeout: 30s
       retries: 5
+      start_period: 60s
     volumes:
       - ./postgres/.data/:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
       - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
     restart: unless-stopped
     networks:
-      - nw
+      - backend
 
 networks:
-  nw:
+  frontend:
+    driver: bridge
+  backend:
     driver: bridge

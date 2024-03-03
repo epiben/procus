@@ -1,19 +1,35 @@
-### POST start from scratch
-curl -d 'Body=Restart' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+# VIA LOCALHOST
 
-### POST start iteration
-curl -d 'Body=Yes' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+### GET start from scratch
+curl http://localhost:50000/aquaicu?message=Restart&from=4500000000
 
-### POST valid response to items
-curl -d 'Body=1' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+### GET start iteration
+curl http://localhost:50000/aquaicu?message=Yes&from=4500000000
 
-### POST invalid response to items
-curl -d 'Body=10' \
-    -d 'From=%2B4500000000' \
-    http://localhost:50000/twilio
+### GET valid response to items
+curl http://localhost:50000/aquaicu?message=2&from=4500000000
+
+### GET invalid response to items
+curl http://localhost:50000/aquaicu?message=10&from=4500000000
+
+### GET to test health of FastAPI service
+curl http://localhost:50000/health
+
+# VIA PUBLIC ADDRESS
+#### GET start from scratch
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Restart&from=4500000000
+
+### GET start iteration
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Yes&from=4500000000
+
+### GET valid response to items
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=2&from=4500000000
+
+### GET invalid response to items
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=10&from=4500000000
+
+### GET to test health of FastAPI service
+curl http://localhost:50000/health
+
+###
+curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Restart&from=4560196801

@@ -125,7 +125,7 @@ VALUES
 
 ---- Dummy person, useful for cURL-based querying
 INSERT INTO public.recipients (phone_number, full_name) 
-VALUES ('+4500000000', 'McUrl');
+VALUES ('4500000000', 'McUrl');
 
 INSERT INTO public.iterations (instrument_id, phone_number, message_body, is_open, opens_datetime) 
 SELECT
@@ -138,7 +138,7 @@ FROM public.recipients;
 
 INSERT INTO responses (phone_number, item_text, item_id, opens_datetime, status)
 SELECT
-    '+4500000000'
+    '4500000000'
     , item_text
     , item_id
     , now()
@@ -146,4 +146,4 @@ SELECT
 FROM public.items;
 
 INSERT INTO responses (phone_number, item_text, item_id, opens_datetime, status)
-VALUES ('+4500000000', 'Thank you for your help! Reply with the word Restart to start over.', NULL, now(), 'open');
+VALUES ('4500000000', 'Thank you for your help! Reply with the word Restart to start over.', NULL, now(), 'open');
