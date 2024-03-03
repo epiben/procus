@@ -16,7 +16,7 @@ services:
         condition: service_healthy
         restart: true
     networks:
-      - nw
+      - backend
 
   fastapi:
     build:
@@ -39,7 +39,8 @@ services:
         condition: service_healthy
         restart: true
     networks:
-      - nw
+      - frontend
+      - backend
 
   ngrok:
     image: ngrok/ngrok:latest
@@ -54,7 +55,7 @@ services:
         condition: service_healthy
         restart: true
     networks:
-      - nw
+      - frontend
 
   db:
     image: postgres:latest
@@ -75,8 +76,10 @@ services:
       - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
     restart: unless-stopped
     networks:
-      - nw
+      - backend
 
 networks:
-  nw:
+  frontend:
+    driver: bridge
+  backend:
     driver: bridge
