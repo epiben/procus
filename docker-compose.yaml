@@ -2,11 +2,11 @@ version: "3.8"
 
 services:
 
-  starter: 
+  starter:
     build:
-      context: app/
+      context: .
       dockerfile: Dockerfile
-    command: python app_starter.py
+    command: python /app/app_starter.py
     # entrypoint: /bin/sh
     # command: -c "sleep 3600"
     # NB! No port mapped to host as this is unneeded
@@ -20,9 +20,9 @@ services:
 
   fastapi:
     build:
-      context: app/
+      context: .
       dockerfile: Dockerfile
-    command: python app_fastapi.py
+    command: python /app/app_fastapi.py
     expose:
       - 5000
     ports:
@@ -36,6 +36,23 @@ services:
       retries: 5
     depends_on:
       db:
+        condition: service_healthy
+        restart: true
+    networks:
+      - nw
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http fastapi:5000
+    ports:
+      - "4040:4040"
+    expose:
+      - 4040
+    env_file:
+      - ngrok/.env
+    restart: unless-stopped
+    depends_on:
+      fastapi:
         condition: service_healthy
         restart: true
     networks:
