@@ -43,13 +43,11 @@ services:
 
   ngrok:
     image: ngrok/ngrok:latest
-    command: http fastapi:5000
+    command: start fastapi --config /etc/ngrok.yaml
+    volumes:
+      - ./ngrok/ngrok.yaml:/etc/ngrok.yaml
     ports:
-      - "4040:4040"
-    expose:
-      - 4040
-    env_file:
-      - ngrok/.env
+      - 4040:4040
     restart: unless-stopped
     depends_on:
       fastapi:
@@ -70,6 +68,7 @@ services:
       interval: 10s
       timeout: 30s
       retries: 5
+      start_period: 5s
     volumes:
       - ./postgres/.data/:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
