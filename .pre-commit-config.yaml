@@ -11,30 +11,30 @@ repos:
     hooks:
     -   id: isort
         files: "\\.(py)$"
-        args: ['--check', 'etl']
+        args: ['--check', 'app']
 
 -   repo: https://github.com/psf/black
     rev: 22.3.0
     hooks:
     -    id: black
-         files: ^etl/
-         args: ['--config=pyproject.toml', '--check', 'etl']
+         files: ^app/
+         args: ['--config=pyproject.toml', '--check', 'app']
 
 -   repo: https://github.com/PyCQA/flake8
     rev: 6.1.0
     hooks:
     -   id: flake8
-        files: ^etl/
+        files: ^app/
 
 -   repo: https://github.com/PyCQA/pylint
     rev: v3.0.1
 
     hooks:
     -   id: pylint
-        files: ^etl/
+        files: ^app/
         args:
           [
             '--reports=no',
-            'etl',
+            'app',
             '--rcfile=.pylintrc',
           ]
