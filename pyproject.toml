@@ -26,3 +26,9 @@ exclude = '''
   )/
 )
 '''
+
+[tool.isort]
+force_grid_wrap = 2
+multi_line_output = 3
+line_length = 79
+include_trailing_comma = true
