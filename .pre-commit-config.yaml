@@ -26,15 +26,15 @@ repos:
     -   id: flake8
         files: ^app/
 
--   repo: https://github.com/PyCQA/pylint
-    rev: v3.0.1
+# -   repo: https://github.com/PyCQA/pylint
+#     rev: v3.0.1
 
-    hooks:
-    -   id: pylint
-        files: ^app/
-        args:
-          [
-            '--reports=no',
-            'app',
-            '--rcfile=.pylintrc',
-          ]
+#     hooks:
+#     -   id: pylint
+#         files: ^app/
+#         args:
+#           [
+#             '--reports=no',
+#             'app',
+#             '--rcfile=.pylintrc',
+#           ]

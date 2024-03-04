@@ -1,19 +1,21 @@
 import logging
-import os
 import time
 from collections import namedtuple
-from datetime import datetime, timezone
+from datetime import (
+    datetime,
+    timezone,
+)
 
 import psycopg2
 import requests
-from dotenv import load_dotenv
 from psycopg2.extras import NamedTupleCursor
-from utils import DB_CONN_PARAMS, DatabaseLogHandler, document_sms
+from utils.db import DB_CONN_PARAMS
+from utils.logging import LOGGER
+from utils.sms import (
+    document_sms,
+    send_sms,
+)
 
-logger = logging.getLogger("database_logger")
-logger.setLevel(logging.INFO)
-log_handler = DatabaseLogHandler(DB_CONN_PARAMS)
-logger.addHandler(log_handler)
 
 # Helper functions
 def fetch_iterations(connection) -> list[namedtuple]:
@@ -60,24 +62,22 @@ def add_item_to_responses(
 
     connection.cursor().execute(
         """
-        INSERT INTO responses (phone_number, item_text, item_id, opens_datetime, status)
+        INSERT INTO responses (
+            phone_number
+            , item_text
+            , item_id
+            , opens_datetime
+            , status
+        )
         VALUES (%s, %s, %s, %s, %s);
         """,
         (phone_number, item_text, item_id, opens_datetime, "open"),
     )
 
 
-# Twilio-related
-load_dotenv(".env")
-client = Client(
-    os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"]
-)
-logger.info("Initialised Client")
-
-
 def main():
     with psycopg2.connect(**DB_CONN_PARAMS) as conn:
-        logger.info("Connected to db and ready to process user request")
+        LOGGER.info("Connected to db and ready to process user request")
         iterations = fetch_iterations(conn)
 
         for iter in iterations:
@@ -100,16 +100,23 @@ def main():
                 item_id=None,
             )
 
-            conn.cursor().execute(
-                "UPDATE iterations SET is_open = true WHERE iteration_id = %s;",
-                (iter.iteration_id,),
+            message = send_sms(
+                to=iter.phone_number, message=iter.message_body, logger=LOGGER
             )
 
-            message = client.messages.create(
-                to=iter.phone_number,
-                body=iter.message_body,
-                messaging_service_sid=os.environ["MESSAGING_SERVICE_SID"],
-            )
+            if message.status_code == requests.codes.ok:
+                conn.cursor().execute(
+                    """
+                    UPDATE iterations SET is_open = true
+                    WHERE iteration_id = %s
+                    """,
+                    (iter.iteration_id,),
+                )
+            else:
+                logging.error(
+                    f"Failed invite {iter.phone_number} to new around. "
+                    + "Iteration_id: {iter.iteration_id}"
+                )
 
             document_sms(
                 connection=conn,
@@ -118,22 +125,21 @@ def main():
                 direction="outbound",
             )
 
-            logger.info(
-                f"{iter.phone_number} invited to new round. Message SID: {message.sid}"
-            )
+            LOGGER.info(f"{iter.phone_number} invited to new round.)")
         else:
-            logger.info("No pending iterations")
+            LOGGER.info("No pending iterations")
 
 
 if __name__ == "__main__":
-    logger.info("Starting the starter app")
+    LOGGER.info("Starting the starter app")
 
     while True:
         try:
             main()
         except Exception as e:
             error_msg = getattr(e, "message", repr(e))
-            logger.fatal(f"main() fails. Error message: {error_msg}")
+            LOGGER.fatal(f"main() fails. Error message: {error_msg}")
+            # TODO: send to pushover or similar
 
         SECONDS_PER_HOUR = 60 * 60
         time.sleep(SECONDS_PER_HOUR / 2)

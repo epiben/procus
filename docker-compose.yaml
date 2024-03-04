@@ -38,6 +38,8 @@ services:
       db:
         condition: service_healthy
         restart: true
+    volumes:
+      - ./persistent_storage/:/persistent_storage/
     networks:
       - frontend
       - backend

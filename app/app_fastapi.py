@@ -3,73 +3,41 @@
 import hashlib
 import inspect
 import json
-import logging
 import time
-from collections import namedtuple
-from datetime import datetime, timezone
+from datetime import (
+    datetime,
+    timezone,
+)
 
 import psycopg2
 import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi import (
+    FastAPI,
+    Request,
+)
+from fastapi.responses import JSONResponse
 from psycopg2.extras import NamedTupleCursor
-from utils import (DB_CONN_PARAMS, DatabaseLogHandler, MessagingResponse,
-                   XmlResponse, document_sms)
+from utils.api import (
+    XmlResponse,
+    dump_request,
+    fetch_awaiting_responses,
+    fetch_next_item,
+    parse_response,
+    to_xml_response,
+)
+from utils.db import DB_CONN_PARAMS
+from utils.logging import LOGGER
+from utils.sms import document_sms
 
-logger = logging.getLogger("database_logger")
-logger.setLevel(logging.INFO)
-log_handler = DatabaseLogHandler(DB_CONN_PARAMS)
-logger.addHandler(log_handler)
-
-# Helper functions
-def parse_response(x: str, lower: int = 1, upper: int = 5) -> int | None:
-    try:
-        x = int(x)
-        return x if lower <= x <= upper else None
-    except ValueError:
-        return None
-
-
-def fetch_next_item(connection, phone_number: str) -> namedtuple:
-    # psycopg2 doesn't support type hinting
-    with connection.cursor(cursor_factory=NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT item_text, response_id
-            FROM responses
-            WHERE status = 'open'
-                AND phone_number = %s
-            ORDER BY response_id ASC
-            LIMIT 1;
-            """,
-            (phone_number,),
-        )
-        item = cursor.fetchone()
-    return item
-
-
-# Build dict of awaiting responses when app launches
-# the dict is updated when the /aquaicu endpoint is invoked (when appropriate)
 with psycopg2.connect(**DB_CONN_PARAMS) as conn:
-    with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT phone_number, response_id
-            FROM responses
-            WHERE status = 'awaiting';
-            """
-        )
-        rows = cursor.fetchall()
-
-awaiting_responses = {row.phone_number: row.response_id for row in rows}
-
+    awaiting_responses = fetch_awaiting_responses(conn)
 
 app = FastAPI()
 
 
-@app.get("/health", response_class=PlainTextResponse)
-def health() -> PlainTextResponse:
-    return "Service is healthy"
+@app.get("/health", response_class=JSONResponse)
+def health() -> JSONResponse:
+    return {"status": "Service is healthy"}
 
 
 @app.get("/aquaicu", response_class=XmlResponse)
@@ -78,18 +46,17 @@ async def sms_response(request: Request) -> XmlResponse:
     phone_number = data.get("from", None)
     inbound_body = data.get("message", None)
 
-    resp = MessagingResponse()
+    dump_request(request, "request")
 
     if not phone_number:
-        resp.message("Houston, we have a problem")
-        logger.critical(
+        LOGGER.critical(
             "Didn't receive a recipient phone number. Request: \n"
             + json.dumps(data)
         )
-        return resp.to_xml()
+        return to_xml_response("Houston, we have a problem")
 
     with psycopg2.connect(**DB_CONN_PARAMS) as conn:
-        # TODO: don't save response to "thank you message" -- find a way to make this happen
+        # TODO: don't save response to "thank you message"
 
         document_sms(
             connection=conn,
@@ -103,7 +70,7 @@ async def sms_response(request: Request) -> XmlResponse:
             awaiting_responses.pop(phone_number, None)
 
             conn.cursor().execute(
-                "UPDATE iterations SET is_open = true WHERE phone_number = %s;",
+                "UPDATE iterations SET is_open = true WHERE phone_number = %s",
                 (phone_number,),
             )
 
@@ -129,14 +96,13 @@ async def sms_response(request: Request) -> XmlResponse:
                 )
                 outbound_body = cursor.fetchone().message_body
 
-            resp.message(outbound_body)
             document_sms(
                 connection=conn,
                 phone_number=phone_number,
                 message_body=outbound_body,
                 direction="outbound",
             )
-            return resp.to_xml()
+            return to_xml_response(outbound_body)
 
         with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
             cursor.execute(
@@ -170,14 +136,15 @@ async def sms_response(request: Request) -> XmlResponse:
             )
         else:
             outbound_body = "Husk svare med blot èt heltal fra listen ovenfor."
-            resp.message(outbound_body)
+
             document_sms(
                 connection=conn,
                 phone_number=phone_number,
                 message_body=outbound_body,
                 direction="outbound",
             )
-            return resp.to_xml()
+
+            return to_xml_response(outbound_body)
 
         item = fetch_next_item(conn, phone_number)
 
@@ -198,14 +165,11 @@ async def sms_response(request: Request) -> XmlResponse:
             error_code = hashlib.sha256(f"{time.time()}".encode("utf-8"))
             error_code = error_code.hexdigest()[:7]
             outbound_body = inspect.cleandoc(
-                f"""\
+                """\
                 Der ser ikke ud til at være nogle åbne spørgsmål til dig.
                 Svar 'Restart' for at starte forfra.\
                 """
-                # Er dette en fejl, bedes du kontakte os med følgende fejlkode: {error_code}.
             )
-
-        resp.message(outbound_body)
 
         document_sms(
             connection=conn,
@@ -214,7 +178,7 @@ async def sms_response(request: Request) -> XmlResponse:
             direction="outbound",
         )
 
-    return resp.to_xml()
+    return to_xml_response(outbound_body)
 
 
 if __name__ == "__main__":

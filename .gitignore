@@ -1,7 +1,13 @@
 .DS_Store
 */.env
+
+ngrok/ngrok.yaml
 postgres/add_recipients_iterations.sql
-postgres/.data/*
+postgres/.data/
+persistent_storage/
+
+
 __pycache__/
+*/__pycache__
 legacy/
 .vscode
