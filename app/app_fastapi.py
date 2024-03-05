@@ -4,10 +4,6 @@ import hashlib
 import inspect
 import json
 import time
-from datetime import (
-    datetime,
-    timezone,
-)
 
 import psycopg2
 import uvicorn
@@ -25,7 +21,10 @@ from utils.api import (
     parse_response,
     to_xml_response,
 )
-from utils.db import DB_CONN_PARAMS
+from utils.db import (
+    DB_CONN_PARAMS,
+    PROD_SCHEMA,
+)
 from utils.logging import LOGGER
 from utils.sms import document_sms
 
@@ -70,15 +69,24 @@ async def sms_response(request: Request) -> XmlResponse:
             awaiting_responses.pop(phone_number, None)
 
             conn.cursor().execute(
-                "UPDATE iterations SET is_open = true WHERE phone_number = %s",
+                """
+                UPDATE {}.iterations
+                SET is_open = true, updated_by = 'fastapi'
+                WHERE phone_number = %s
+                """.format(
+                    PROD_SCHEMA
+                ),
                 (phone_number,),
             )
 
             conn.cursor().execute(
                 """
-                UPDATE responses SET status = 'open', response = NULL
+                UPDATE {}.responses
+                SET status = 'open', response = NULL, updated_by = 'fastapi'
                 WHERE phone_number = %s
-                """,
+                """.format(
+                    PROD_SCHEMA
+                ),
                 (phone_number,),
             )
 
@@ -86,12 +94,14 @@ async def sms_response(request: Request) -> XmlResponse:
                 cursor.execute(
                     """
                     SELECT message_body
-                    FROM iterations
+                    FROM {}.iterations
                     WHERE phone_number = %s
                         AND is_open = true
                     ORDER BY iteration_id DESC
                     LIMIT 1;
-                    """,
+                    """.format(
+                        PROD_SCHEMA
+                    ),
                     (phone_number,),
                 )
                 outbound_body = cursor.fetchone().message_body
@@ -108,10 +118,12 @@ async def sms_response(request: Request) -> XmlResponse:
             cursor.execute(
                 """
                 SELECT COUNT(response_id) AS n
-                FROM responses
+                FROM {}.responses
                 WHERE phone_number = %s
                     AND status = 'awaiting';
-                """,
+                """.format(
+                    PROD_SCHEMA
+                ),
                 (phone_number,),
             )
             n_responses_waiting_for_user = cursor.fetchone().n
@@ -123,11 +135,14 @@ async def sms_response(request: Request) -> XmlResponse:
         elif parsed_response:
             conn.cursor().execute(
                 """
-                UPDATE responses SET response = %s, status = 'closed'
+                UPDATE {}.responses
+                SET response = %s, status = 'closed', updated_by = 'fastapi'
                 WHERE response_id = %s
                     AND phone_number = %s
                     AND status = 'awaiting'
-                """,
+                """.format(
+                    PROD_SCHEMA
+                ),
                 (
                     parsed_response,
                     awaiting_responses[phone_number],
@@ -154,11 +169,13 @@ async def sms_response(request: Request) -> XmlResponse:
 
             conn.cursor().execute(
                 """
-                UPDATE responses
-                SET status = 'awaiting', status_datetime = %s
+                UPDATE {}.responses
+                SET status = 'awaiting', updated_by = 'fastapi'
                 WHERE response_id = %s;
-                """,
-                (datetime.now(timezone.utc), item.response_id),
+                """.format(
+                    PROD_SCHEMA
+                ),
+                (item.response_id,),
             )
         else:
             # TODO: consider to mention we'll be in touch again

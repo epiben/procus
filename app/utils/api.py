@@ -8,6 +8,7 @@ from fastapi import (
     Response,
 )
 from psycopg2.extras import NamedTupleCursor
+from utils.db import PROD_SCHEMA
 
 load_dotenv(".env")
 
@@ -48,12 +49,14 @@ def fetch_next_item(connection, phone_number: str) -> namedtuple:
         cursor.execute(
             """
             SELECT item_text, response_id
-            FROM responses
+            FROM {}.responses
             WHERE status = 'open'
                 AND phone_number = %s
             ORDER BY response_id ASC
             LIMIT 1;
-            """,
+            """.format(
+                PROD_SCHEMA
+            ),
             (phone_number,),
         )
         item = cursor.fetchone()
@@ -67,9 +70,11 @@ def fetch_awaiting_responses(connection) -> dict:
         cursor.execute(
             """
             SELECT phone_number, response_id
-            FROM responses
+            FROM {}.responses
             WHERE status = 'awaiting';
-            """
+            """.format(
+                PROD_SCHEMA
+            )
         )
         rows = cursor.fetchall()
 

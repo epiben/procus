@@ -60,7 +60,9 @@ services:
       - frontend
 
   db:
-    image: postgres:latest
+    build:
+      context: postgres
+      dockerfile: Dockerfile
     expose: # NB! No port mapped to host as this is unneeded
       - 5432
     environment:

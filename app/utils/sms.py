@@ -8,6 +8,7 @@ from datetime import (
 
 import requests
 from fastapi import Response
+from utils.db import PROD_SCHEMA
 
 
 def document_sms(
@@ -16,10 +17,12 @@ def document_sms(
     timestamp = datetime.now(timezone.utc)
     connection.cursor().execute(
         """
-        INSERT INTO messages
+        INSERT INTO {}.messages
             (sent_datetime, phone_number, message_body, direction)
         VALUES (%s, %s, %s, %s);
-        """,
+        """.format(
+            PROD_SCHEMA
+        ),
         (timestamp, phone_number, message_body, direction),
     )
 

@@ -9,7 +9,10 @@ from datetime import (
 import psycopg2
 import requests
 from psycopg2.extras import NamedTupleCursor
-from utils.db import DB_CONN_PARAMS
+from utils.db import (
+    DB_CONN_PARAMS,
+    PROD_SCHEMA,
+)
 from utils.logging import LOGGER
 from utils.sms import (
     document_sms,
@@ -23,10 +26,12 @@ def fetch_iterations(connection) -> list[namedtuple]:
         cursor.execute(
             """
             SELECT iteration_id, phone_number, instrument_id, message_body
-            FROM iterations
+            FROM {}.iterations
             WHERE is_open IS false
                 AND opens_datetime <= now();
-            """
+            """.format(
+                PROD_SCHEMA
+            )
         )
         iterations = cursor.fetchall()
     return iterations
@@ -37,9 +42,11 @@ def fetch_items(connection, instrument_id: int) -> list[namedtuple]:
         cursor.execute(
             """
             SELECT item_id, item_text
-            FROM items
+            FROM {}.items
             WHERE instrument_id = %s
-            """,
+            """.format(
+                PROD_SCHEMA
+            ),
             (instrument_id,),
         )
         items = cursor.fetchall()
@@ -62,7 +69,7 @@ def add_item_to_responses(
 
     connection.cursor().execute(
         """
-        INSERT INTO responses (
+        INSERT INTO {}.responses (
             phone_number
             , item_text
             , item_id
@@ -70,7 +77,9 @@ def add_item_to_responses(
             , status
         )
         VALUES (%s, %s, %s, %s, %s);
-        """,
+        """.format(
+            PROD_SCHEMA
+        ),
         (phone_number, item_text, item_id, opens_datetime, "open"),
     )
 
@@ -107,9 +116,12 @@ def main():
             if message.status_code == requests.codes.ok:
                 conn.cursor().execute(
                     """
-                    UPDATE iterations SET is_open = true
+                    UPDATE {}.iterations
+                    SET is_open = true, updated_by = 'starter'
                     WHERE iteration_id = %s
-                    """,
+                    """.format(
+                        PROD_SCHEMA
+                    ),
                     (iter.iteration_id,),
                 )
             else:
