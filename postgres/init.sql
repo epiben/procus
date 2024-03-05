@@ -1,5 +1,6 @@
 -- EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS temporal_tables;
+-- see https://clarkdave.net/2015/02/historical-records-with-postgresql-and-temporal-tables-and-sql-2011/
 
 -- DDL
 
