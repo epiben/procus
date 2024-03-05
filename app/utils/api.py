@@ -93,4 +93,4 @@ async def dump_request(request: Request, file_path: str = None) -> None:
 
     unix_epochs = int(datetime.datetime.now().timestamp())
     with open(f"/persistent_storage/{file_path}_{unix_epochs}.json", "w") as f:
-        json.dump(request_as_dict, f)
+        json.dump(request_as_dict, f, indent=2)
