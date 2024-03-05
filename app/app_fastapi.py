@@ -45,7 +45,7 @@ async def sms_response(request: Request) -> XmlResponse:
     phone_number = data.get("from", None)
     inbound_body = data.get("message", None)
 
-    dump_request(request, "request")
+    await dump_request(request, "request")
 
     if not phone_number:
         LOGGER.critical(
