@@ -3,7 +3,7 @@
 ### GET start from scratch
 curl http://localhost:50000/aquaicu?message=Restart&from=4500000000
 
-### GET start iteration
+### GET confirm starting new iteration
 curl http://localhost:50000/aquaicu?message=Yes&from=4500000000
 
 ### GET valid response to items
@@ -12,24 +12,5 @@ curl http://localhost:50000/aquaicu?message=2&from=4500000000
 ### GET invalid response to items
 curl http://localhost:50000/aquaicu?message=10&from=4500000000
 
-### GET to test health of FastAPI service
+### GET fetch health of FastAPI service
 curl http://localhost:50000/health
-
-# VIA PUBLIC ADDRESS
-#### GET start from scratch
-curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Restart&from=4500000000
-
-### GET start iteration
-curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Yes&from=4500000000
-
-### GET valid response to items
-curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=2&from=4500000000
-
-### GET invalid response to items
-curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=10&from=4500000000
-
-### GET to test health of FastAPI service
-curl http://localhost:50000/health
-
-###
-curl https://mallard-skilled-physically.ngrok-free.app/aquaicu?message=Restart&from=4560196801

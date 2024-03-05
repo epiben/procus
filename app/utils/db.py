@@ -9,3 +9,5 @@ DB_CONN_PARAMS: dict = {
     "host": "db",
     "port": "5432",
 }
+
+PROD_SCHEMA: str = "prod"
