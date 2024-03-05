@@ -37,6 +37,19 @@ with psycopg2.connect(**DB_CONN_PARAMS) as conn:
 app = FastAPI()
 
 
+@app.middleware("http")
+async def validate_token_middleware(request: Request, call_next):
+    token = request.query_params.get("token")
+
+    if token != CPSMS_WEBHOOK_TOKEN:
+        return JSONResponse(
+            status_code=403, content={"details": "Invalid token"}
+        )
+
+    response = await call_next(request)
+    return response
+
+
 @app.get("/health", response_class=JSONResponse)
 def health() -> JSONResponse:
     return {"status": "Service is healthy"}
