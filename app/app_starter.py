@@ -62,7 +62,7 @@ def add_item_to_responses(
 ) -> None:
     """
     The responses table will be pre-filled with items, and responses will be
-    stored here by the API when invoked through Twilio
+    stored here by the API when invoked through SMS gateway
     """
     if not opens_datetime:
         opens_datetime = datetime.now(timezone.utc)
