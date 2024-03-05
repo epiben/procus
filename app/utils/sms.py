@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from datetime import (
     datetime,
     timezone,
@@ -28,10 +27,13 @@ def document_sms(
 
 
 def send_sms(
-    to: int = None, message: str = None, logger: logging.Logger = None
+    to: int = None,
+    message: str = None,
+    token: str = None,
+    logger: logging.Logger = None,
 ) -> Response:
     payload = {"to": to, "message": message}
-    headers = {"Authorization": "Basic " + os.environ["CPSMS_API_TOKEN"]}
+    headers = {"Authorization": f"Basic {token}"}
 
     if logger:
         logger.info(f"Trying to send payload {json.dumps(payload)} to {to}")
