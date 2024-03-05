@@ -1,11 +1,11 @@
 .DS_Store
 */.env
+.env
 
 ngrok/ngrok.yaml
 postgres/add_recipients_iterations.sql
 postgres/.data/
 persistent_storage/
-
 
 __pycache__/
 */__pycache__
