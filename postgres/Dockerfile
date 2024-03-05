@@ -23,7 +23,7 @@ RUN ./pgxn install temporal_tables
 #------------------#
 FROM postgres:16-bullseye
 
-RUN echo 'alias ll="ls -la"' >> ~/.bashrc
+RUN echo 'alias la="ls -la"' >> ~/.bashrc
 
 # Copy artefacts from BUILDER image
 COPY --from=builder \
