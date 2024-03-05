@@ -19,8 +19,10 @@ from utils.sms import (
     send_sms,
 )
 
+with open("/run/secrets/cpsms_api_token", "r") as f:
+    CPSMS_API_TOKEN: str = f.readline()
 
-# Helper functions
+
 def fetch_iterations(connection) -> list[namedtuple]:
     with connection.cursor(cursor_factory=NamedTupleCursor) as cursor:
         cursor.execute(
@@ -110,7 +112,10 @@ def main():
             )
 
             message = send_sms(
-                to=iter.phone_number, message=iter.message_body, logger=LOGGER
+                to=iter.phone_number,
+                message=iter.message_body,
+                token=CPSMS_API_TOKEN,
+                logger=LOGGER,
             )
 
             if message.status_code == requests.codes.ok:

@@ -28,6 +28,9 @@ from utils.db import (
 from utils.logging import LOGGER
 from utils.sms import document_sms
 
+with open("/run/secrets/cpsms_webhook_token", "r") as f:
+    CPSMS_WEBHOOK_TOKEN: str = f.readline()
+
 with psycopg2.connect(**DB_CONN_PARAMS) as conn:
     awaiting_responses = fetch_awaiting_responses(conn)
 

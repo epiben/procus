@@ -10,6 +10,8 @@ services:
     # entrypoint: /bin/sh
     # command: -c "sleep 3600"
     # NB! No port mapped to host as this is unneeded
+    secrets:
+      - cpsms_api_token
     restart: unless-stopped
     depends_on:
       db:
@@ -23,6 +25,8 @@ services:
       context: .
       dockerfile: Dockerfile
     command: python /app/app_fastapi.py
+    secrets:
+      - cpsms_webhook_token
     expose:
       - 5000
     ports:
@@ -46,9 +50,9 @@ services:
 
   ngrok:
     image: ngrok/ngrok:latest
-    command: start fastapi --config /etc/ngrok.yaml
-    volumes:
-      - ./ngrok/ngrok.yaml:/etc/ngrok.yaml
+    command: start fastapi --config /run/secrets/ngrok_config
+    secrets:
+      - ngrok_config
     ports:
       - 4040:4040
     restart: unless-stopped
@@ -87,3 +91,11 @@ networks:
     driver: bridge
   backend:
     driver: bridge
+
+secrets:
+  cpsms_api_token:
+    file: ./secrets/cpsms_api_token.txt
+  cpsms_webhook_token:
+    file: ./secrets/cpsms_webhook_token.txt
+  ngrok_config:
+    file: ./secrets/ngrok_config.yaml
