@@ -7,6 +7,8 @@ The system requires three secrets, stored in three separate files:
 - `secrets/cpsms_webhook_token.txt`: must contain a token (of your choice) that CPSMS includes in its webhook GET request as a query parameter names `token`
 - `secrets/ngrok_config.yaml`: a configuration file for ngrok to establish a secure tunnel, see example below
 
+Because `procus` uses secret, you need to spin up the services in swarm mode and, so, may first need to run `docker swarm init`. Otherwise, running `docker-compose up` will fail and close down gracefully.
+
 ## Ngrok configuration file
 The `secrets/ngrok_config.yaml` file should contain the following information (at least, see https://ngrok.com/docs/ngrok-agent/config/):
 
