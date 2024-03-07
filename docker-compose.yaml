@@ -1,0 +1,139 @@
+version: "3.8"
+
+services:
+
+  starter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python /app/app_starter.py
+    # entrypoint: /bin/sh
+    # command: -c "sleep 3600"
+    # NB! No port mapped to host as this is unneeded
+    secrets:
+      - cpsms_api_token
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    networks:
+      - backend
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python /app/app_fastapi.py
+    secrets:
+      - cpsms_webhook_token
+    expose:
+      - 5000
+    ports:
+      - 50000:5000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://fastapi:5000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ./persistent_storage/:/persistent_storage/
+    networks:
+      - frontend
+      - backend
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: start fastapi --config /run/secrets/ngrok_config
+    secrets:
+      - ngrok_config
+    ports:
+      - 4040:4040
+    restart: unless-stopped
+    depends_on:
+      fastapi:
+        condition: service_healthy
+        restart: true
+    networks:
+      - frontend
+
+  db:
+    build:
+      context: postgres
+      dockerfile: Dockerfile
+    expose: # NB! No port mapped to host as this is unneeded
+      - 5432
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - ./postgres/.data/:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
+      - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
+    restart: unless-stopped
+    networks:
+      - backend
+
+  test-db:
+    build:
+      context: postgres
+      dockerfile: Dockerfile
+    expose: # NB! No port mapped to host as this is unneeded
+      - 6432
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - ./postgres/.data/:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
+      - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
+    restart: unless-stopped
+    networks:
+      - backend
+
+  test-fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: pytest /app/tests/tests_fastapi.py
+    depends_on:
+      fastapi:
+        condition: service_healthy
+        restart: true
+      db:
+        condition: service_healthy
+        restart: true
+    networks:
+      - frontend
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+secrets:
+  cpsms_api_token:
+    file: ./secrets/cpsms_api_token.txt
+  cpsms_webhook_token:
+    file: ./secrets/cpsms_webhook_token.txt
+  ngrok_config:
+    file: ./secrets/ngrok_config.yaml

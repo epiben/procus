@@ -1,0 +1,14 @@
+.DS_Store
+
+ngrok/ngrok.yaml
+postgres/add_recipients_iterations.sql
+postgres/.data/
+persistent_storage/
+secrets/*
+
+__pycache__/
+*/__pycache__
+legacy/
+.vscode
+
+!*/.gitignore
