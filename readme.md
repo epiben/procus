@@ -22,3 +22,13 @@ tunnels:
 
 ## Sending CPSMS-like requests
 The file [`curl_requests.http`](/curl_requests.http) contains cURL requests that mimic those of CPSMS through the webhook. The requests in the file use a dummy recipient (Mr McUrl), created at the end of [`postgres/init.sql`](/postgres/init.sql). Because the phone number isn't valid, one can't test this with an actual phone.
+
+## Contributing
+We welcome contributions directly to the code to improve performance as well as new functionality. For the latter, please first explain and motivate it in an [issue](https://github.com/epiben/procus/issues). All development work happens in the `dev` branch.
+
+Changes to the code base should follow these steps:
+
+- [Fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) the repository
+- [Make a branch](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-and-deleting-branches-within-your-repository) with an appropriate name in your fork
+- Implement changes in your fork, make sure to install `pre-commit` and activate the pre-commit hook with `pre-commit install` (`check_code.sh` runs black, flake8 and isort for your convienence)
+- Create a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork) into the `dev` branch of `procus`
