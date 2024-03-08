@@ -123,6 +123,7 @@ services:
         restart: true
     networks:
       - frontend
+      - backend
 
 networks:
   frontend:
