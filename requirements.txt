@@ -1,8 +1,11 @@
 fastapi==0.109.2
+httpx==0.23.2
 psycopg2-binary==2.9.9
+pytest==8.0.2
 python-dotenv==1.0.1
 python-multipart==0.0.7
-pytest==8.0.2
 requests~=2.31.0
-uvicorn==0.27.0.post1
-httpx==0.23.2
+sqlalchemy_utils~=0.41.1
+SQLAlchemy~=2.0.28
+typing~=3.7.4
+uvicorn~=0.27.0.post1

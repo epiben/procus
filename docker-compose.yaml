@@ -33,7 +33,11 @@ services:
       - 50000:5000
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://fastapi:5000/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fs http://fastapi:5000/health || exit 1"
+        ]
       interval: 30s
       timeout: 5s
       start_period: 30s
@@ -67,36 +71,40 @@ services:
     build:
       context: postgres
       dockerfile: Dockerfile
-    expose: # NB! No port mapped to host as this is unneeded
+    expose:
+      # NB! No port mapped to host as this is unneeded
       - 5432
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
       interval: 10s
       timeout: 30s
       retries: 5
       start_period: 60s
     volumes:
       - ./postgres/.data/:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
-      - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
+      - ./postgres/init_ddl.sql:/docker-entrypoint-initdb.d/init_0.sql
+      - ./postgres/init_dml.sql:/docker-entrypoint-initdb.d/init_1.sql
+      - ./postgres/add_dummy_data.sql:/docker-entrypoint-initdb.d/init_2.sql
     restart: unless-stopped
     networks:
       - backend
+      - shared_pg_network
 
   test-db:
     build:
       context: postgres
       dockerfile: Dockerfile
-    expose: # NB! No port mapped to host as this is unneeded
+    expose:
+      # NB! No port mapped to host as this is unneeded
       - 6432
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
       interval: 10s
       timeout: 30s
       retries: 5
@@ -130,6 +138,10 @@ networks:
     driver: bridge
   backend:
     driver: bridge
+  shared_pg_network:
+    external: true
+    # Remember to create this network if it doesn't already exist, with
+    # docker network create --driver bridge shared_pg_network
 
 secrets:
   cpsms_api_token:

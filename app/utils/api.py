@@ -3,17 +3,16 @@ import json
 from collections import namedtuple
 
 from dotenv import load_dotenv
-from fastapi import (
-    Request,
-    Response,
-)
-from psycopg2.extras import NamedTupleCursor
-from utils.db import PROD_SCHEMA
+from fastapi import Request
+from fastapi import Response as BaseResponse
+from sqlalchemy.engine import Engine
+from utils.db import make_session
+from utils.orm import Response
 
 load_dotenv(".env")
 
 
-class XmlResponse(Response):
+class XmlResponse(BaseResponse):
     media_type = "application/xml;charset=utf-8"
 
 
@@ -43,40 +42,26 @@ def parse_response(x: str, lower: int = 1, upper: int = 5) -> int | None:
         return None
 
 
-def fetch_next_item(connection, phone_number: str) -> namedtuple:
-    # psycopg2 doesn't support type hinting
-    with connection.cursor(cursor_factory=NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT item_text, response_id
-            FROM {}.responses
-            WHERE status = 'open'
-                AND phone_number = %s
-            ORDER BY response_id ASC
-            LIMIT 1;
-            """.format(
-                PROD_SCHEMA
-            ),
-            (phone_number,),
+def fetch_next_item(engine: Engine, phone_number: str) -> namedtuple:
+    with make_session(engine) as session:
+        item = (
+            session.query(Response.item_text, Response.response_id)
+            .filter_by(status="open", phone_number=phone_number)
+            .order_by(Response.response_id)
+            .first()
         )
-        item = cursor.fetchone()
     return item
 
 
 # Build dict of awaiting responses when app launches
 # the dict is updated when the /aquaicu endpoint is invoked (when appropriate)
-def fetch_awaiting_responses(connection) -> dict:
-    with connection.cursor(cursor_factory=NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT phone_number, response_id
-            FROM {}.responses
-            WHERE status = 'awaiting';
-            """.format(
-                PROD_SCHEMA
-            )
+def fetch_awaiting_responses(engine: Engine) -> dict:
+    with make_session(engine) as session:
+        rows = (
+            session.query(Response.phone_number, Response.response_id)
+            .filter_by(status="awaiting")
+            .all()
         )
-        rows = cursor.fetchall()
 
     return {row.phone_number: row.response_id for row in rows}
 

@@ -1,5 +1,3 @@
-# TODO: use aiopg for async postgres queries
-
 import hashlib
 import inspect
 import json
@@ -7,13 +5,13 @@ import time
 
 import uvicorn
 from fastapi import (
+    Depends,
     FastAPI,
     Request,
-    Depends,
 )
 from fastapi.responses import JSONResponse
-from psycopg2.extensions import connection
-from psycopg2.extras import NamedTupleCursor
+from sqlalchemy import and_
+from sqlalchemy.engine import Engine
 from utils.api import (
     XmlResponse,
     dump_request,
@@ -23,32 +21,36 @@ from utils.api import (
     to_xml_response,
 )
 from utils.db import (
-    PROD_SCHEMA,
-    get_prod_db,
+    make_engine,
+    make_session,
 )
 from utils.logging import LOGGER
-from utils.sms import document_sms
-
+from utils.orm import (
+    Iteration,
+    Message,
+    Response,
+)
 
 with open("/run/secrets/cpsms_webhook_token", "r") as f:
     CPSMS_WEBHOOK_TOKEN: str = f.readline()
 
-with get_prod_db() as conn:
-    awaiting_responses = fetch_awaiting_responses(conn)
+# TODO: should probably use environment variable,
+# perhaps even defining once without Depends()
+awaiting_responses = fetch_awaiting_responses(make_engine())
 
 app = FastAPI()
 
+
 @app.middleware("http")
-async def validate_token_middleware(request: Request, call_next):
+def validate_token_middleware(request: Request, call_next):
     token = request.query_params.get("token")
 
-    if token != CPSMS_WEBHOOK_TOKEN \
-        and request.url.path != "/health":
+    if token != CPSMS_WEBHOOK_TOKEN and request.url.path != "/health":
         return JSONResponse(
             status_code=403, content={"details": "Invalid token"}
         )
 
-    response = await call_next(request)
+    response = call_next(request)
     return response
 
 
@@ -58,12 +60,15 @@ def health() -> JSONResponse:
 
 
 @app.get("/aquaicu", response_class=XmlResponse)
-async def sms_response(request: Request, conn: connection = Depends(get_prod_db)) -> XmlResponse:
+def sms_response(
+    request: Request, engine: Engine = Depends(make_engine)
+) -> XmlResponse:
+
     data = request.query_params
     phone_number = data.get("from", None)
     inbound_body = data.get("message", None)
 
-    await dump_request(request, "request")
+    dump_request(request, "request")
 
     if not phone_number:
         LOGGER.critical(
@@ -72,127 +77,126 @@ async def sms_response(request: Request, conn: connection = Depends(get_prod_db)
         )
         return to_xml_response("Houston, we have a problem")
 
-
-    document_sms(
-        connection=conn,
-        phone_number=phone_number,
-        message_body=inbound_body,
-        direction="inbound",
-    )
+    with make_session(engine) as session:
+        new_message = Message(
+            phone_number=phone_number,
+            message_body=inbound_body,
+            direction="inbound",
+        )
+        session.add(new_message)
 
     # TODO: remove later, this is to allow to start over interactively
     if inbound_body == "Restart":
         awaiting_responses.pop(phone_number, None)
 
-        conn.cursor().execute(
-            """
-            UPDATE {}.iterations
-            SET is_open = true, updated_by = 'fastapi'
-            WHERE phone_number = %s
-            """.format(
-                PROD_SCHEMA
-            ),
-            (phone_number,),
-        )
+        # TODO: remove later, this is to allow to start over interactively
+        if inbound_body == "Restart":
+            awaiting_responses.pop(phone_number, None)
 
-        conn.cursor().execute(
-            """
-            UPDATE {}.responses
-            SET status = 'open', response = NULL, updated_by = 'fastapi'
-            WHERE phone_number = %s
-            """.format(
-                PROD_SCHEMA
-            ),
-            (phone_number,),
-        )
+            with make_session(engine) as session:
+                iteration_to_update = (
+                    session.query(Iteration)
+                    .filter(Iteration.phone_number == phone_number)
+                    .first()
+                )
+                if iteration_to_update:
+                    iteration_to_update.is_open = True
+                    iteration_to_update.updated_by = "fastapi"
 
-        with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
-            cursor.execute(
-                """
-                SELECT message_body
-                FROM {}.iterations
-                WHERE phone_number = %s
-                    AND is_open = true
-                ORDER BY iteration_id DESC
-                LIMIT 1;
-                """.format(
-                    PROD_SCHEMA
-                ),
-                (phone_number,),
+                response_to_update = (
+                    session.query(Response)
+                    .filter(Response.phone_number == phone_number)
+                    .first()
+                )
+                if response_to_update:
+                    response_to_update.status = "open"
+                    response_to_update.response = None
+                    response_to_update.updated_by = "fastapi"
+
+        with make_session(engine) as session:
+            outbound_body = (
+                session.query(Iteration.message_body)
+                .filter(
+                    and_(
+                        Iteration.phone_number == phone_number,
+                        Iteration.is_open,
+                    )
+                )
+                .order_by(Iteration.iteration_id.desc())
+                .scalar()
             )
-            outbound_body = cursor.fetchone().message_body
+            print(outbound_body)
 
-        document_sms(
-            connection=conn,
-            phone_number=phone_number,
-            message_body=outbound_body,
-            direction="outbound",
-        )
+            new_message = Message(
+                phone_number=phone_number,
+                message_body=outbound_body,
+                direction="outbound",
+            )
+            session.add(new_message)
+
         return to_xml_response(outbound_body)
 
-    with conn.cursor(cursor_factory=NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT COUNT(response_id) AS n
-            FROM {}.responses
-            WHERE phone_number = %s
-                AND status = 'awaiting';
-            """.format(
-                PROD_SCHEMA
-            ),
-            (phone_number,),
+    with make_session(engine) as session:
+        n_responses_waiting_for_user = (
+            session.query(Response)
+            .filter(
+                and_(
+                    Response.phone_number == phone_number,
+                    Response.status == "awaiting",
+                )
+            )
+            .count()
         )
-        n_responses_waiting_for_user = cursor.fetchone().n
 
     parsed_response = parse_response(inbound_body)
 
     if n_responses_waiting_for_user == 0:
         awaiting_responses.pop(phone_number, None)
     elif parsed_response:
-        conn.cursor().execute(
-            """
-            UPDATE {}.responses
-            SET response = %s, status = 'closed', updated_by = 'fastapi'
-            WHERE response_id = %s
-                AND phone_number = %s
-                AND status = 'awaiting'
-            """.format(
-                PROD_SCHEMA
-            ),
-            (
-                parsed_response,
-                awaiting_responses[phone_number],
-                phone_number,
-            ),
-        )
+        with make_session(engine) as session:
+            response_to_update = (
+                session.query(Response)
+                .filter(
+                    and_(
+                        Response.response_id
+                        == awaiting_responses[phone_number],
+                        Response.phone_number == phone_number,
+                        Response.status == "awaiting",
+                    )
+                )
+                .first()
+            )
+            response_to_update.response = parsed_response
+            response_to_update.status = "closed"
+            response_to_update.updated_by = "fastapi"
+
     else:
         outbound_body = "Husk svare med blot èt heltal fra listen ovenfor."
 
-        document_sms(
-            connection=conn,
-            phone_number=phone_number,
-            message_body=outbound_body,
-            direction="outbound",
-        )
+        with make_session(engine) as session:
+            new_message = Message(
+                phone_number=phone_number,
+                message_body=outbound_body,
+                direction="outbound",
+            )
+            session.add(new_message)
 
         return to_xml_response(outbound_body)
 
-    item = fetch_next_item(conn, phone_number)
+    item = fetch_next_item(engine, phone_number)
 
     if item:
         awaiting_responses[phone_number] = item.response_id
         outbound_body = item.item_text
 
-        conn.cursor().execute(
-            """
-            UPDATE {}.responses
-            SET status = 'awaiting', updated_by = 'fastapi'
-            WHERE response_id = %s;
-            """.format(
-                PROD_SCHEMA
-            ),
-            (item.response_id,),
-        )
+        with make_session(engine) as session:
+            response_to_update = (
+                session.query(Response)
+                .filter(Response.response_id == item.response_id)
+                .first()
+            )
+            response_to_update.status = "awaiting"
+            response_to_update.updated_by = "fastapi"
     else:
         # TODO: consider to mention we'll be in touch again
         error_code = hashlib.sha256(f"{time.time()}".encode("utf-8"))
@@ -204,12 +208,13 @@ async def sms_response(request: Request, conn: connection = Depends(get_prod_db)
             """
         )
 
-    document_sms(
-        connection=conn,
-        phone_number=phone_number,
-        message_body=outbound_body,
-        direction="outbound",
-    )
+    with make_session(engine) as session:
+        new_message = Message(
+            phone_number=phone_number,
+            message_body=outbound_body,
+            direction="outbound",
+        )
+        session.add(new_message)
 
     return to_xml_response(outbound_body)
 
