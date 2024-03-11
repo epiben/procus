@@ -86,6 +86,45 @@ services:
     networks:
       - backend
 
+  test-db:
+    build:
+      context: postgres
+      dockerfile: Dockerfile
+    expose: # NB! No port mapped to host as this is unneeded
+      - 6432
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - ./postgres/.data/:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
+      - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
+    restart: unless-stopped
+    networks:
+      - backend
+
+  test-fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: pytest /app/tests/tests_fastapi.py
+    depends_on:
+      fastapi:
+        condition: service_healthy
+        restart: true
+      db:
+        condition: service_healthy
+        restart: true
+    networks:
+      - frontend
+      - backend
+
 networks:
   frontend:
     driver: bridge

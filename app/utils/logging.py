@@ -7,20 +7,18 @@ from datetime import (
 import psycopg2
 from psycopg2 import sql
 from utils.db import (
-    DB_CONN_PARAMS,
     PROD_SCHEMA,
+    get_prod_db,
 )
 
 
 class DatabaseLogHandler(logging.Handler):
     def __init__(
         self,
-        connection_params: dict,
         table_name: str = "log",
         schema_name: str = PROD_SCHEMA,
     ):
         super(DatabaseLogHandler, self).__init__()
-        self.connection_params = connection_params
         self.table_name = table_name
         self.schema_name = schema_name
         self.create_table()
@@ -41,12 +39,12 @@ class DatabaseLogHandler(logging.Handler):
         """
         ).format(sql.Identifier(self.schema_name + "." + self.table_name))
 
-        with psycopg2.connect(**self.connection_params) as conn:
+        with get_prod_db() as conn:
             conn.cursor().execute(table_schema)
 
     def emit(self, record):
         created_datetime = datetime.fromtimestamp(record.created, timezone.utc)
-        with psycopg2.connect(**self.connection_params) as conn:
+        with get_prod_db() as conn:
             conn.cursor().execute(
                 self.insert_query,
                 (record.levelname, record.msg, created_datetime),
@@ -55,5 +53,5 @@ class DatabaseLogHandler(logging.Handler):
 
 LOGGER: logging.Logger = logging.getLogger("database_logger")
 LOGGER.setLevel(logging.INFO)
-log_handler = DatabaseLogHandler(DB_CONN_PARAMS)
+log_handler = DatabaseLogHandler()
 LOGGER.addHandler(log_handler)
