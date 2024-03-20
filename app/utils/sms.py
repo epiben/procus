@@ -7,23 +7,23 @@ from datetime import (
 
 import requests
 from fastapi import Response
-from utils.db import PROD_SCHEMA
+from sqlalchemy.engine import Engine
+from utils.db import make_session
+from utils.orm import Message
 
 
 def document_sms(
-    connection, phone_number: str, message_body: str, direction: str
+    engine: Engine, phone_number: str, message_body: str, direction: str
 ) -> None:
-    timestamp = datetime.now(timezone.utc)
-    connection.cursor().execute(
-        """
-        INSERT INTO {}.messages
-            (sent_datetime, phone_number, message_body, direction)
-        VALUES (%s, %s, %s, %s);
-        """.format(
-            PROD_SCHEMA
-        ),
-        (timestamp, phone_number, message_body, direction),
-    )
+    with make_session(engine) as session:
+        session.add(
+            Message(
+                sent_datime=datetime.now(timezone.utc),
+                phone_number=phone_number,
+                message_body=message_body,
+                direction=direction,
+            )
+        )
 
 
 def send_sms(

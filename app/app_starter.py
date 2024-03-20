@@ -1,150 +1,82 @@
 import logging
 import time
-from collections import namedtuple
-from datetime import (
-    datetime,
-    timezone,
-)
 
-import psycopg2
 import requests
-from psycopg2.extras import NamedTupleCursor
+from sqlalchemy import update
+from sqlalchemy.engine import Engine
 from utils.db import (
-    DB_CONN_PARAMS,
-    PROD_SCHEMA,
+    make_engine,
+    make_session,
 )
 from utils.logging import LOGGER
+from utils.orm import Iteration
 from utils.sms import (
     document_sms,
     send_sms,
+)
+from utils.starter import (
+    add_item_to_responses,
+    fetch_items,
+    fetch_iterations_to_open,
 )
 
 with open("/run/secrets/cpsms_api_token", "r") as f:
     CPSMS_API_TOKEN: str = f.readline()
 
 
-def fetch_iterations(connection) -> list[namedtuple]:
-    with connection.cursor(cursor_factory=NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT iteration_id, phone_number, instrument_id, message_body
-            FROM {}.iterations
-            WHERE is_open IS false
-                AND opens_datetime <= now();
-            """.format(
-                PROD_SCHEMA
-            )
-        )
-        iterations = cursor.fetchall()
-    return iterations
+def main(engine: Engine):
+    LOGGER.info("Connected to db and ready to process user request")
+    iterations = fetch_iterations_to_open(engine)
 
+    for iter in iterations:
+        items = fetch_items(engine=engine, instrument_id=iter.instrument_id)
 
-def fetch_items(connection, instrument_id: int) -> list[namedtuple]:
-    with connection.cursor(cursor_factory=NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT item_id, item_text
-            FROM {}.items
-            WHERE instrument_id = %s
-            """.format(
-                PROD_SCHEMA
-            ),
-            (instrument_id,),
-        )
-        items = cursor.fetchall()
-    return items
-
-
-def add_item_to_responses(
-    connection,  # psycopg2 doesn't support type hinting
-    phone_number: str,
-    item_text: str,
-    item_id: int,
-    opens_datetime: datetime = None,
-) -> None:
-    """
-    The responses table will be pre-filled with items, and responses will be
-    stored here by the API when invoked through SMS gateway
-    """
-    if not opens_datetime:
-        opens_datetime = datetime.now(timezone.utc)
-
-    connection.cursor().execute(
-        """
-        INSERT INTO {}.responses (
-            phone_number
-            , item_text
-            , item_id
-            , opens_datetime
-            , status
-        )
-        VALUES (%s, %s, %s, %s, %s);
-        """.format(
-            PROD_SCHEMA
-        ),
-        (phone_number, item_text, item_id, opens_datetime, "open"),
-    )
-
-
-def main():
-    with psycopg2.connect(**DB_CONN_PARAMS) as conn:
-        LOGGER.info("Connected to db and ready to process user request")
-        iterations = fetch_iterations(conn)
-
-        for iter in iterations:
-            items = fetch_items(
-                connection=conn, instrument_id=iter.instrument_id
-            )
-
-            for item in items:
-                add_item_to_responses(
-                    connection=conn,
-                    phone_number=iter.phone_number,
-                    item_text=item.item_text,
-                    item_id=item.item_id,
-                )
-
+        for item in items:
             add_item_to_responses(
-                connection=conn,
+                engine=engine,
                 phone_number=iter.phone_number,
-                item_text="Tak for din hjælp!",
-                item_id=None,
+                item_text=item.item_text,
+                item_id=item.item_id,
             )
 
-            message = send_sms(
-                to=iter.phone_number,
-                message=iter.message_body,
-                token=CPSMS_API_TOKEN,
-                logger=LOGGER,
+        add_item_to_responses(
+            engine=engine,
+            phone_number=iter.phone_number,
+            item_text="Tak for din hjælp!",
+            item_id=None,
+        )
+
+        message = send_sms(
+            to=iter.phone_number,
+            message=iter.message_body,
+            token=CPSMS_API_TOKEN,
+            logger=LOGGER,
+        )
+
+        if message.status_code == requests.codes.ok:
+            stmt = (
+                update(Iteration)
+                .where(Iteration.iteration_id == iter.iteration_id)
+                .values(is_open=True, updated_by="starter")
             )
-
-            if message.status_code == requests.codes.ok:
-                conn.cursor().execute(
-                    """
-                    UPDATE {}.iterations
-                    SET is_open = true, updated_by = 'starter'
-                    WHERE iteration_id = %s
-                    """.format(
-                        PROD_SCHEMA
-                    ),
-                    (iter.iteration_id,),
-                )
-            else:
-                logging.error(
-                    f"Failed invite {iter.phone_number} to new around. "
-                    + "Iteration_id: {iter.iteration_id}"
-                )
-
-            document_sms(
-                connection=conn,
-                phone_number=iter.phone_number,
-                message_body=iter.message_body,
-                direction="outbound",
-            )
-
-            LOGGER.info(f"{iter.phone_number} invited to new round.)")
+            with make_session(engine) as session:
+                session.execute(stmt)
         else:
-            LOGGER.info("No pending iterations")
+            logging.error(
+                f"Could not invite {iter.phone_number} to new around. "
+                + "Iteration_id: {iter.iteration_id}"
+            )
+
+        document_sms(
+            engine=engine,
+            phone_number=iter.phone_number,
+            message_body=iter.message_body,
+            direction="outbound",
+        )
+
+        LOGGER.info(f"{iter.phone_number} invited to new round.)")
+    else:
+        LOGGER.info("No pending iterations")
 
 
 if __name__ == "__main__":
@@ -152,9 +84,10 @@ if __name__ == "__main__":
 
     while True:
         try:
-            main()
+            engine: Engine = make_engine()
+            main(engine)
         except Exception as e:
-            error_msg = getattr(e, "message", repr(e))
+            error_msg: str = getattr(e, "message", repr(e))
             LOGGER.fatal(f"main() fails. Error message: {error_msg}")
             # TODO: send to pushover or similar
 
