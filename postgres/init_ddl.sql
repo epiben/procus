@@ -37,7 +37,7 @@ CREATE TABLE history.instruments (
 ALTER TABLE history.instruments OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.instruments
+BEFORE UPDATE OR DELETE ON prod.instruments
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.instruments', true
 );
@@ -60,7 +60,7 @@ CREATE TABLE history.items (
 ALTER TABLE history.items OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.items
+BEFORE UPDATE OR DELETE ON prod.items
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.items', true
 );
@@ -88,7 +88,7 @@ CREATE TABLE history.iterations (
 ALTER TABLE history.iterations OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.iterations
+BEFORE UPDATE OR DELETE ON prod.iterations
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.iterations', true
 );
@@ -115,7 +115,7 @@ CREATE TABLE history.responses (
 ALTER TABLE history.responses OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.responses
+BEFORE UPDATE OR DELETE ON prod.responses
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.responses', true
 );
