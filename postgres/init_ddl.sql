@@ -1,14 +1,16 @@
--- EXTENSIONS
+-- Extensions
+-- CREATE EXTENSION IF NOT EXISTS system_stats;
+
 CREATE EXTENSION IF NOT EXISTS temporal_tables;
 -- see https://clarkdave.net/2015/02/historical-records-with-postgresql-and-temporal-tables-and-sql-2011/
 
--- DDL
+-- Schemas
 
 CREATE SCHEMA prod;
 CREATE SCHEMA history;
 
 
----- Recipients
+-- Recipients
 CREATE TABLE prod.recipients (
     recipient_id SERIAL PRIMARY KEY,
     phone_number text UNIQUE NOT NULL,
@@ -18,7 +20,7 @@ CREATE TABLE prod.recipients (
 ALTER TABLE prod.recipients OWNER TO postgres;
 
 
----- Instruments
+-- Instruments
 CREATE TABLE prod.instruments (
     instrument_id SERIAL PRIMARY KEY,
     instrument_name text NOT NULL,
@@ -35,13 +37,13 @@ CREATE TABLE history.instruments (
 ALTER TABLE history.instruments OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.instruments
+BEFORE UPDATE OR DELETE ON prod.instruments
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.instruments', true
 );
 
 
----- Items
+-- Items
 CREATE TABLE prod.items (
     item_id SERIAL PRIMARY KEY,
     instrument_id integer REFERENCES prod.instruments (instrument_id),
@@ -58,13 +60,13 @@ CREATE TABLE history.items (
 ALTER TABLE history.items OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.items
+BEFORE UPDATE OR DELETE ON prod.items
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.items', true
 );
 
 
----- Iterations
+-- Iterations
 CREATE TABLE prod.iterations (
     iteration_id SERIAL PRIMARY KEY,
     instrument_id integer REFERENCES prod.instruments (instrument_id),
@@ -86,13 +88,13 @@ CREATE TABLE history.iterations (
 ALTER TABLE history.iterations OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.iterations
+BEFORE UPDATE OR DELETE ON prod.iterations
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.iterations', true
 );
 
 
----- Responses
+-- Responses
 CREATE TABLE prod.responses (
     response_id SERIAL PRIMARY KEY,
     phone_number text REFERENCES prod.recipients (phone_number),
@@ -113,13 +115,13 @@ CREATE TABLE history.responses (
 ALTER TABLE history.responses OWNER TO postgres;
 
 CREATE TRIGGER versioning_changes
-BEFORE UPDATE ON prod.responses
+BEFORE UPDATE OR DELETE ON prod.responses
 FOR EACH ROW EXECUTE PROCEDURE versioning(
     'sys_period', 'history.responses', true
 );
 
 
----- Log
+-- Log
 CREATE TABLE prod.log (
     id SERIAL PRIMARY KEY,
     level character varying(10),
@@ -129,8 +131,9 @@ CREATE TABLE prod.log (
 ALTER TABLE prod.log OWNER TO postgres;
 
 
----- Messages
+-- Messages
 CREATE TABLE prod.messages (
+    message_id SERIAL PRIMARY KEY,
     sent_datetime timestamp with time zone DEFAULT now() NOT NULL,
     phone_number text REFERENCES prod.recipients (phone_number),
     message_body text,
@@ -140,81 +143,3 @@ ALTER TABLE prod.messages OWNER TO postgres;
 
 COMMENT ON TABLE prod.messages IS
 'Holds all in- and outbound messages with timestamp, but without any tracking of which belong together. Table is meant for documentation and data scrutiny.';
-
-
--- DML
-
----- Instruments
-INSERT INTO prod.instruments (instrument_name, is_active)
-VALUES ('EQ-5D-5L', true);
-
-
----- Items
-INSERT INTO prod.items (instrument_id, item_text)
-VALUES
-    (1, concat_ws(E'\n',
-        'Hvor store problemer har du med at gå omkring?',
-        '1: Ingen',
-        '2: Lidt',
-        '3: Moderate',
-        '4: Store',
-        '5: Jeg kan ikke gå omkring'
-    )),
-    (1, concat_ws(E'\n',
-        'Hvor store problemer har du med at vaske eller klæde dig på?',
-        '1: Ingen',
-        '2: Lidt',
-        '3: Moderate',
-        '4: Store',
-        '5: Jeg kan ikke vaske mig eller klæde mig på'
-    )),
-    (1, concat_ws(E'\n',
-        'Hvor store problemer har du med at udføre sædvanlige aktiviteter?',
-        '1: Ingen',
-        '2: Lidt',
-        '3: Moderate',
-        '4: Store',
-        '5: Jeg kan ikke udføre sædvanlige aktiviteter'
-    )),
-    (1, concat_ws(E'\n',
-        'Hvor store smerter/meget ubehag har du?',
-        '1: Ingen',
-        '2: Lidt',
-        '3: Moderate',
-        '4: Store',
-        '5: Ekstreme'
-    )),
-    (1, concat_ws(E'\n',
-        'I hvor høj grad er du ængstelig eller deprimeret?',
-        '1: Det er jeg ikke',
-        '2: Lidt',
-        '3: Moderate',
-        '4: Store',
-        '5: Ekstremt'
-    ));
-
-
----- Dummy person, useful for cURL-based querying
-INSERT INTO prod.recipients (phone_number, full_name)
-VALUES ('4500000000', 'McUrl');
-
-INSERT INTO prod.iterations (instrument_id, phone_number, message_body, is_open, opens_datetime)
-SELECT
-    1
-    , phone_number
-    , CONCAT('Dear ', full_name, '! Are you ready for another round? If so, reply with arbitrary messsage.')
-    , true
-    , now()
-FROM prod.recipients;
-
-INSERT INTO prod.responses (phone_number, item_text, item_id, opens_datetime, status)
-SELECT
-    '4500000000'
-    , item_text
-    , item_id
-    , now()
-    , 'open'
-FROM prod.items;
-
-INSERT INTO prod.responses (phone_number, item_text, item_id, opens_datetime, status)
-VALUES ('4500000000', 'Thank you for your help! Reply with the word Restart to start over.', NULL, now(), 'open');
