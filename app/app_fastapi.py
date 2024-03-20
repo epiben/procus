@@ -10,7 +10,12 @@ from fastapi import (
     Request,
 )
 from fastapi.responses import JSONResponse
-from sqlalchemy import and_
+from sqlalchemy import (
+    and_,
+    func,
+    select,
+    update,
+)
 from sqlalchemy.engine import Engine
 from utils.api import (
     XmlResponse,
@@ -94,38 +99,34 @@ def sms_response(
             awaiting_responses.pop(phone_number, None)
 
             with make_session(engine) as session:
-                iteration_to_update = (
-                    session.query(Iteration)
-                    .filter(Iteration.phone_number == phone_number)
-                    .first()
+                stmt = (
+                    update(Iteration)
+                    .where(Iteration.phone_number == phone_number)
+                    .values(is_open=False, updated_by="fastapi")
                 )
-                if iteration_to_update:
-                    iteration_to_update.is_open = True
-                    iteration_to_update.updated_by = "fastapi"
+                session.execute(stmt)
 
-                response_to_update = (
-                    session.query(Response)
-                    .filter(Response.phone_number == phone_number)
-                    .first()
+                stmt = (
+                    update(Response)
+                    .where(
+                        Response.phone_number == phone_number,
+                    )
+                    .values(status="open", response=None, updated_by="fastapi")
                 )
-                if response_to_update:
-                    response_to_update.status = "open"
-                    response_to_update.response = None
-                    response_to_update.updated_by = "fastapi"
+                session.execute(stmt)
 
         with make_session(engine) as session:
-            outbound_body = (
-                session.query(Iteration.message_body)
-                .filter(
+            stmt = (
+                select(Iteration)
+                .where(
                     and_(
                         Iteration.phone_number == phone_number,
                         Iteration.is_open,
                     )
                 )
                 .order_by(Iteration.iteration_id.desc())
-                .scalar()
             )
-            print(outbound_body)
+            outbound_body = session.scalars(stmt).first()
 
             new_message = Message(
                 phone_number=phone_number,
@@ -137,38 +138,34 @@ def sms_response(
         return to_xml_response(outbound_body)
 
     with make_session(engine) as session:
-        n_responses_waiting_for_user = (
-            session.query(Response)
-            .filter(
-                and_(
-                    Response.phone_number == phone_number,
-                    Response.status == "awaiting",
-                )
+        stmt = select(func.count(Response.response_id)).where(
+            and_(
+                Response.phone_number == phone_number,
+                Response.status == "awaiting",
             )
-            .count()
         )
+        n_responses_waiting_for_user = session.scalar(stmt)
 
     parsed_response = parse_response(inbound_body)
 
     if n_responses_waiting_for_user == 0:
         awaiting_responses.pop(phone_number, None)
     elif parsed_response:
-        with make_session(engine) as session:
-            response_to_update = (
-                session.query(Response)
-                .filter(
-                    and_(
-                        Response.response_id
-                        == awaiting_responses[phone_number],
-                        Response.phone_number == phone_number,
-                        Response.status == "awaiting",
-                    )
+        stmt = (
+            update(Response)
+            .where(
+                and_(
+                    Response.response_id == awaiting_responses[phone_number],
+                    Response.phone_number == phone_number,
+                    Response.status == "awaiting",
                 )
-                .first()
             )
-            response_to_update.response = parsed_response
-            response_to_update.status = "closed"
-            response_to_update.updated_by = "fastapi"
+            .values(
+                response=parsed_response, status="closed", updated_by="fastapi"
+            )
+        )
+        with make_session(engine) as session:
+            session.execute(stmt)
 
     else:
         outbound_body = "Husk svare med blot èt heltal fra listen ovenfor."
@@ -189,14 +186,14 @@ def sms_response(
         awaiting_responses[phone_number] = item.response_id
         outbound_body = item.item_text
 
+        stmt = (
+            update(Response)
+            .where(Response.response_id == item.response_id)
+            .values(status="awaiting", updated_by="fastapi")
+        )
         with make_session(engine) as session:
-            response_to_update = (
-                session.query(Response)
-                .filter(Response.response_id == item.response_id)
-                .first()
-            )
-            response_to_update.status = "awaiting"
-            response_to_update.updated_by = "fastapi"
+            session.execute(stmt)
+
     else:
         # TODO: consider to mention we'll be in touch again
         error_code = hashlib.sha256(f"{time.time()}".encode("utf-8"))
