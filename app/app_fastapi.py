@@ -47,7 +47,7 @@ app = FastAPI()
 
 
 @app.middleware("http")
-def validate_token_middleware(request: Request, call_next):
+async def validate_token_middleware(request: Request, call_next):
     token = request.query_params.get("token")
 
     if token != CPSMS_WEBHOOK_TOKEN and request.url.path != "/health":
@@ -55,7 +55,7 @@ def validate_token_middleware(request: Request, call_next):
             status_code=403, content={"details": "Invalid token"}
         )
 
-    response = call_next(request)
+    response = await call_next(request)
     return response
 
 
@@ -65,7 +65,7 @@ def health() -> JSONResponse:
 
 
 @app.get("/aquaicu", response_class=XmlResponse)
-def sms_response(
+async def sms_response(
     request: Request, engine: Engine = Depends(make_engine)
 ) -> XmlResponse:
 
@@ -73,7 +73,7 @@ def sms_response(
     phone_number = data.get("from", None)
     inbound_body = data.get("message", None)
 
-    dump_request(request, "request")
+    await dump_request(request, "request")
 
     if not phone_number:
         LOGGER.critical(
@@ -81,6 +81,8 @@ def sms_response(
             + json.dumps(data)
         )
         return to_xml_response("Houston, we have a problem")
+
+    # TODO: make sessions async
 
     with make_session(engine) as session:
         new_message = Message(
