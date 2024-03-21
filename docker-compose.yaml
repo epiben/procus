@@ -12,6 +12,7 @@ services:
     # NB! No port mapped to host as this is unneeded
     secrets:
       - cpsms_api_token
+      - postgres_password
     restart: unless-stopped
     depends_on:
       db:
@@ -27,6 +28,7 @@ services:
     command: python /app/app_fastapi.py
     secrets:
       - cpsms_webhook_token
+      - postgres_password
     expose:
       - 5000
     ports:
