@@ -98,9 +98,6 @@ services:
     build:
       context: postgres
       dockerfile: Dockerfile
-    expose:
-      # NB! No port mapped to host as this is unneeded
-      - 6432
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
@@ -111,9 +108,8 @@ services:
       retries: 5
       start_period: 60s
     volumes:
-      - ./postgres/.data/:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
-      - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
+      - ./postgres/init_ddl.sql:/docker-entrypoint-initdb.d/init_0.sql
+      - ./postgres/init_dml.sql:/docker-entrypoint-initdb.d/init_1.sql
     restart: unless-stopped
     networks:
       - backend
