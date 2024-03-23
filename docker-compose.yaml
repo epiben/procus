@@ -55,7 +55,7 @@ services:
       - backend
 
   ngrok:
-    image: ngrok/ngrok:latest
+    image: ngrok/ngrok:3.8.0-alpine
     command: start fastapi --config /run/secrets/ngrok_config
     secrets:
       - ngrok_config
