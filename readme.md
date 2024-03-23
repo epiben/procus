@@ -1,4 +1,4 @@
-****# PROCUS: Patient-reported outcome collection using short messages
+# PROCUS: Patient-reported outcome collection using short messages
 A full-fledged system for collecting patient-reported outcome data from respondents via short messages (text messages, SMS).  For now, it uses only CPSMS (cpsms.dk) as the SMS gateway.
 
 The system requires three secrets, stored in three separate files:
