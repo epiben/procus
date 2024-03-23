@@ -1,7 +1,7 @@
 #---------------#
 # Builder image #
 #---------------#
-FROM postgres:16 AS BUILDER
+FROM postgres:16.2 AS BUILDER
 
 # Install necessary dependencies for building PostgreSQL extensions and Python
 RUN apt-get update && apt-get install -y \
@@ -21,7 +21,7 @@ RUN ./pgxn install temporal_tables
 #------------------#
 # Production image #
 #------------------#
-FROM postgres:16-bullseye
+FROM postgres:16.2-bullseye
 
 RUN echo 'alias la="ls -la"' >> ~/.bashrc
 
