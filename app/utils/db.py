@@ -13,10 +13,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session as SQLAlchemySession
 
 load_dotenv(".env")
+
+with open("/run/secrets/postgres_password", "r") as f:
+    POSTGRES_PASSWORD: str = f.readline()
+
 DB_CONN_PARAMS: dict = {
     "dbname": "postgres",
     "user": "postgres",
-    "password": "postgres",
+    "password": POSTGRES_PASSWORD,
     "host": "db",
     "port": "5432",
 }
@@ -24,7 +28,7 @@ DB_CONN_PARAMS: dict = {
 DB_CONN_PARAMS_TEST: dict = {
     "dbname": "postgres",
     "user": "postgres",
-    "password": "postgres",
+    "password": POSTGRES_PASSWORD,
     "host": "db",
     "port": "6432",
 }

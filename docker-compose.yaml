@@ -12,6 +12,7 @@ services:
     # NB! No port mapped to host as this is unneeded
     secrets:
       - cpsms_api_token
+      - postgres_password
     restart: unless-stopped
     depends_on:
       db:
@@ -27,6 +28,7 @@ services:
     command: python /app/app_fastapi.py
     secrets:
       - cpsms_webhook_token
+      - postgres_password
     expose:
       - 5000
     ports:
@@ -53,7 +55,7 @@ services:
       - backend
 
   ngrok:
-    image: ngrok/ngrok:latest
+    image: ngrok/ngrok:3.8.0-alpine
     command: start fastapi --config /run/secrets/ngrok_config
     secrets:
       - ngrok_config
@@ -71,12 +73,11 @@ services:
     build:
       context: postgres
       dockerfile: Dockerfile
-    expose:
-      # NB! No port mapped to host as this is unneeded
-      - 5432
     environment:
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_USER: postgres
+    secrets:
+      - postgres_password
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
       interval: 10s
@@ -97,9 +98,6 @@ services:
     build:
       context: postgres
       dockerfile: Dockerfile
-    expose:
-      # NB! No port mapped to host as this is unneeded
-      - 6432
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
@@ -110,9 +108,8 @@ services:
       retries: 5
       start_period: 60s
     volumes:
-      - ./postgres/.data/:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init_0.sql
-      - ./postgres/add_recipients_iterations.sql:/docker-entrypoint-initdb.d/init_1.sql
+      - ./postgres/init_ddl.sql:/docker-entrypoint-initdb.d/init_0.sql
+      - ./postgres/init_dml.sql:/docker-entrypoint-initdb.d/init_1.sql
     restart: unless-stopped
     networks:
       - backend
@@ -150,3 +147,5 @@ secrets:
     file: ./secrets/cpsms_webhook_token.txt
   ngrok_config:
     file: ./secrets/ngrok_config.yaml
+  postgres_password:
+    file: ./secrets/postgres_password.txt
